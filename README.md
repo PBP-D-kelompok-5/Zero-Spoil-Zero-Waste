@@ -7,12 +7,12 @@
 ## 🔗 Tautan Penting
 * **Deployment (PWS):** [Tautan Deployment PWS - Diperbarui pada Checkpoint 2]
 * **Desain UI/UX (Figma):** [Tautan Prototipe Desain Figma]
-* **Repositori Git:** [Tautan GitHub Organization / Repositori]
+* **Repositori Git:** https://github.com/PBP-D-kelompok-5/Zero-Spoil-Zero-Waste
 
 ---
 
 ## 👥 Anggota Kelompok & Pembagian Modul
-**Kelas / Kelompok:** [PBP X / Kelompok Y]
+**Kelas / Kelompok:** [PBP D / Kelompok 5]
 
 | Nama | NPM | Modul yang Dikerjakan |
 | :--- | :--- | :--- |
