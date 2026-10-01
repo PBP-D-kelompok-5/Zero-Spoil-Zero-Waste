@@ -1,0 +1,145 @@
+/* =========================================================
+   Pantry Necromancer — Design System (v1, Checkpoint 2)
+   Token warna + komponen dasar yang dipakai semua modul.
+   Warna juga tersedia sebagai kelas Tailwind, mis. bg-crypt-900,
+   text-ecto-400 (lihat static/js/tailwind.config.js).
+   ========================================================= */
+
+:root {
+  /* Crypt — latar & permukaan */
+  --pn-crypt-950: 11 15 13;    /* #0B0F0D latar halaman */
+  --pn-crypt-900: 17 24 20;    /* #111814 kartu */
+  --pn-crypt-800: 28 38 32;    /* #1C2620 permukaan terangkat */
+  --pn-crypt-700: 39 51 44;    /* #27332C garis */
+
+  /* Bone — teks */
+  --pn-bone-50: 243 239 228;   /* #F3EFE4 teks utama */
+  --pn-bone-200: 214 208 191;  /* #D6D0BF teks sekunder */
+  --pn-bone-400: 168 162 144;  /* #A8A290 teks redup */
+
+  /* Aksen & status */
+  --pn-ecto-300: 183 239 142;  /* #B7EF8E */
+  --pn-ecto-400: 155 227 106;  /* #9BE36A primer / Stable */
+  --pn-ember-400: 242 178 70;  /* #F2B246 Critical */
+  --pn-blood-400: 240 122 110; /* #F07A6E Flatlining / hapus */
+  --pn-hex-400: 182 156 255;   /* #B69CFF Resurrected */
+  --pn-frost-400: 111 211 219; /* #6FD3DB info */
+
+  --pn-radius: 12px;
+  --pn-tone: var(--pn-bone-400);
+}
+
+/* Tone: mewarnai badge/kartu sesuai modul atau status */
+.pn-tone-ecto  { --pn-tone: var(--pn-ecto-400); }
+.pn-tone-ember { --pn-tone: var(--pn-ember-400); }
+.pn-tone-blood { --pn-tone: var(--pn-blood-400); }
+.pn-tone-hex   { --pn-tone: var(--pn-hex-400); }
+.pn-tone-frost { --pn-tone: var(--pn-frost-400); }
+
+/* ---------- Dasar ---------- */
+.pn-body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: rgb(var(--pn-crypt-950));
+  color: rgb(var(--pn-bone-50));
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  line-height: 1.6;
+}
+
+.pn-container { width: 100%; max-width: 72rem; margin-inline: auto; padding-inline: 1rem; }
+@media (min-width: 640px) { .pn-container { padding-inline: 1.5rem; } }
+
+/* ---------- Tipografi ---------- */
+.pn-display, .pn-heading { font-family: "Fraunces", Georgia, serif; font-weight: 600; letter-spacing: -0.02em; }
+.pn-display { font-size: clamp(2.25rem, 6vw, 4rem); line-height: 1.05; }
+.pn-heading { font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.2; }
+.pn-lead { font-size: 1.125rem; color: rgb(var(--pn-bone-200)); }
+.pn-muted { color: rgb(var(--pn-bone-400)); }
+
+/* ---------- Tombol ---------- */
+.pn-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  min-height: 2.75rem; padding: 0.75rem 1.25rem;
+  border: 1px solid transparent; border-radius: var(--pn-radius);
+  font-weight: 600; font-size: 0.9375rem; line-height: 1;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.pn-btn:focus-visible { outline: 2px solid rgb(var(--pn-ecto-300)); outline-offset: 2px; }
+.pn-btn--primary { background: rgb(var(--pn-ecto-400)); color: rgb(var(--pn-crypt-950)); }
+.pn-btn--primary:hover { background: rgb(var(--pn-ecto-300)); }
+.pn-btn--secondary { background: rgb(var(--pn-crypt-800)); color: rgb(var(--pn-bone-50)); border-color: rgb(var(--pn-crypt-700)); }
+.pn-btn--secondary:hover { border-color: rgb(var(--pn-bone-400)); }
+.pn-btn--danger { background: rgb(var(--pn-blood-400)); color: rgb(var(--pn-crypt-950)); }
+.pn-btn--ghost { background: transparent; color: rgb(var(--pn-bone-200)); }
+.pn-btn--ghost:hover { background: rgb(var(--pn-crypt-800)); color: rgb(var(--pn-bone-50)); }
+.pn-btn--sm { min-height: 2.25rem; padding: 0.5rem 0.875rem; font-size: 0.8125rem; }
+.pn-btn--block { width: 100%; }
+
+/* ---------- Kartu ---------- */
+.pn-card {
+  background: rgb(var(--pn-crypt-900));
+  border: 1px solid rgb(var(--pn-crypt-700));
+  border-radius: calc(var(--pn-radius) + 4px);
+  padding: 1.5rem;
+}
+.pn-card--accent { border-top: 3px solid rgb(var(--pn-tone)); }
+
+/* ---------- Badge status ---------- */
+.pn-badge {
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  padding: 0.25rem 0.625rem; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+  color: rgb(var(--pn-tone));
+  background: rgb(var(--pn-tone) / 0.12);
+  border: 1px solid rgb(var(--pn-tone) / 0.35);
+}
+
+/* ---------- Form ----------
+   Bungkus form dengan class="pn-form"; input bawaan Django otomatis ikut bergaya.
+   Satu field: {% include 'partials/form_field.html' %} */
+.pn-field { margin-bottom: 1.125rem; }
+.pn-label { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 600; color: rgb(var(--pn-bone-200)); }
+.pn-input,
+.pn-form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]),
+.pn-form select,
+.pn-form textarea {
+  display: block; width: 100%; min-height: 2.75rem; padding: 0.7rem 0.875rem;
+  background: rgb(var(--pn-crypt-950)); color: rgb(var(--pn-bone-50));
+  border: 1px solid rgb(var(--pn-crypt-700)); border-radius: var(--pn-radius);
+}
+.pn-input:focus, .pn-form input:focus, .pn-form select:focus, .pn-form textarea:focus {
+  outline: none; border-color: rgb(var(--pn-ecto-400)); box-shadow: 0 0 0 3px rgb(var(--pn-ecto-400) / 0.25);
+}
+.pn-form [aria-invalid="true"] { border-color: rgb(var(--pn-blood-400)); }
+.pn-help { margin-top: 0.375rem; font-size: 0.8125rem; color: rgb(var(--pn-bone-400)); }
+.pn-help ul { list-style: disc; padding-left: 1.125rem; }
+.pn-error { margin-top: 0.375rem; font-size: 0.8125rem; font-weight: 500; color: rgb(var(--pn-blood-400)); }
+
+/* ---------- Alert (pesan sukses/error) ---------- */
+.pn-alert {
+  padding: 0.875rem 1rem; border-radius: var(--pn-radius); font-size: 0.9375rem;
+  border: 1px solid rgb(var(--pn-tone) / 0.4); background: rgb(var(--pn-tone) / 0.1);
+}
+
+/* ---------- Meter sisa umur bahan ---------- */
+.pn-meter { height: 0.5rem; border-radius: 999px; background: rgb(var(--pn-crypt-700)); overflow: hidden; }
+.pn-meter__fill { height: 100%; border-radius: inherit; background: rgb(var(--pn-tone)); }
+
+/* ---------- Lain-lain ---------- */
+.pn-link { color: rgb(var(--pn-ecto-300)); text-decoration: underline; text-underline-offset: 3px; }
+.pn-avatar {
+  display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 999px;
+  background: rgb(var(--pn-hex-400) / 0.18); color: rgb(var(--pn-hex-400));
+  font-size: 0.8125rem; font-weight: 700; text-transform: uppercase;
+}
+
+/* ---------- Navbar ---------- */
+.pn-nav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgb(var(--pn-crypt-950) / 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgb(var(--pn-crypt-700));
+}
+.pn-nav__link { padding: 0.5rem 0.75rem; border-radius: var(--pn-radius); font-size: 0.875rem; color: rgb(var(--pn-bone-200)); }
+.pn-nav__link:hover { background: rgb(var(--pn-crypt-800)); color: rgb(var(--pn-bone-50)); }

@@ -1,0 +1,28 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Pantry Necromancer{% endblock title %}</title>
+    <link rel="icon" href="{% static 'img/logo-mark.svg' %}" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{% static 'js/tailwind.config.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'css/global.css' %}" />
+    {% block extra_head %}{% endblock extra_head %}
+  </head>
+  <body class="pn-body">
+    {% include 'partials/header.html' %}
+
+    <main class="flex-1">
+      {% include 'partials/messages.html' %}
+      {% block content %}{% endblock content %}
+    </main>
+
+    {% include 'partials/footer.html' %}
+    {% block scripts %}{% endblock scripts %}
+  </body>
+</html>

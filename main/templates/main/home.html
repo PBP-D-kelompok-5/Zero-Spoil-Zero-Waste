@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="pn-container py-14 md:py-20">
+  <div class="grid items-center gap-12 lg:grid-cols-[1.15fr_1fr]">
+    <div class="flex flex-col gap-6">
+      <span class="pn-badge pn-tone-ecto self-start">Sustainable Living · Food Waste</span>
+      <h1 class="pn-display">Bangkitkan sisa bahan. <span class="italic text-ecto-300">Kuburkan</span> food waste.</h1>
+      <p class="pn-lead">
+        Pantry Necromancer membantu anak kost dan pemula masak memantau umur bahan di kulkas,
+        menemukan resep penyelamat, dan berbagi surplus sebelum terbuang.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        {% if user.is_authenticated %}
+          <a href="#modul" class="pn-btn pn-btn--primary">Lihat modul</a>
+        {% else %}
+          <a href="{% url 'main:register' %}" class="pn-btn pn-btn--primary">Mulai gratis</a>
+          <a href="#modul" class="pn-btn pn-btn--secondary">Lihat modul</a>
+        {% endif %}
+      </div>
+      {% if user.is_authenticated %}
+        <p class="text-sm pn-muted">Masuk sebagai <strong class="text-bone-50">{{ user.username }}</strong>.</p>
+      {% endif %}
+    </div>
+
+    {# Ilustrasi Death Clock (contoh tampilan, bukan data pengguna) #}
+    <div class="pn-card flex flex-col gap-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-widest text-ecto-300">Death Clock</p>
+          <p class="font-display text-lg font-semibold">Kulkas lantai 2</p>
+        </div>
+        <span class="pn-badge">Contoh tampilan</span>
+      </div>
+      {% for item in preview_items %}
+        <div class="pn-tone-{{ item.tone }} rounded-xl border border-crypt-700 bg-crypt-950 p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="font-semibold">{{ item.name }}</p>
+              <p class="text-sm pn-muted">{{ item.category }}</p>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              <span class="pn-badge">{{ item.status }}</span>
+              <span class="text-sm pn-muted">{% if item.days_left == 0 %}hari ini{% else %}{{ item.days_left }} hari lagi{% endif %}</span>
+            </div>
+          </div>
+          <div class="pn-meter mt-3"><div class="pn-meter__fill" style="width: {{ item.percent }}%"></div></div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section id="modul" class="pn-container scroll-mt-20">
+  <h2 class="pn-heading mb-8">Lima modul</h2>
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {% for module in modules %}
+      <article id="{{ module.slug }}" class="pn-card pn-card--accent pn-tone-{{ module.tone }} flex scroll-mt-24 flex-col gap-3">
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-xs font-semibold uppercase tracking-widest pn-muted">Modul {{ forloop.counter }}</span>
+          <span class="pn-badge pn-tone-{{ module.tone }}">Segera hadir</span>
+        </div>
+        <h3 class="font-display text-xl font-semibold">{{ module.name }}</h3>
+        <p class="text-sm text-bone-200">{{ module.description }}</p>
+        <p class="mt-auto text-sm pn-muted">{{ module.owner }}</p>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+
+{% if not user.is_authenticated %}
+<section class="pn-container mt-16">
+  <div class="pn-card">
+    <div class="flex flex-col items-center gap-4 py-6 text-center">
+      <h2 class="pn-heading">Siap membangkitkan isi kulkasmu?</h2>
+      <p class="pn-lead max-w-lg">Daftar dalam semenit. Inventaris dan riwayat limbahmu bersifat privat.</p>
+      <div class="flex flex-wrap justify-center gap-3">
+        <a href="{% url 'main:register' %}" class="pn-btn pn-btn--primary">Buat akun</a>
+        <a href="{% url 'main:login' %}" class="pn-btn pn-btn--ghost">Sudah punya akun? Masuk</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock content %}

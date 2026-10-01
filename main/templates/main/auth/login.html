@@ -1,0 +1,7 @@
+{% extends 'main/auth/_auth_layout.html' %}
+
+{% block title %}Masuk · Pantry Necromancer{% endblock title %}
+{% block auth_title %}Selamat datang kembali{% endblock auth_title %}
+{% block auth_subtitle %}Masuk untuk membuka inventaris dan riwayatmu.{% endblock auth_subtitle %}
+{% block auth_button %}Masuk{% endblock auth_button %}
+{% block auth_switch %}Belum punya akun? <a href="{% url 'main:register' %}" class="pn-link">Daftar sekarang</a>{% endblock auth_switch %}

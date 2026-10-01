@@ -27,11 +27,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-n1(hk3i(#!4pg3%=a+ryx_tepo%g=k2jo9-ln677!3oz64c6u4'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = not PRODUCTION
+
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "https://michael-evan51-pantry-necromancer.pws.cs.ui.ac.id/"]
+
+CSRF_TRUSTED_ORIGINS = ["https://michael-evan51-pantry-necromancer.pws.cs.ui.ac.id/"]
 
 # Application definition
 
@@ -42,10 +45,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'main',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -59,7 +64,7 @@ ROOT_URLCONF = 'PantryNecromancer.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -123,7 +128,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'id'  # pesan error form & autentikasi dalam bahasa Indonesia
 
 TIME_ZONE = 'UTC'
 
@@ -135,7 +140,19 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+if DEBUG:
+    STATICFILES_DIRS = [
+        BASE_DIR / 'static'
+    ]
+else:
+    STATIC_ROOT = BASE_DIR / 'static'
+
+# PWS tidak menjalankan collectstatic, jadi WhiteNoise mencari static file app (mis. admin) lewat finders
+WHITENOISE_USE_FINDERS = True
+
+# Halaman yang memakai @login_required diarahkan ke sini
+LOGIN_URL = 'main:login'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
