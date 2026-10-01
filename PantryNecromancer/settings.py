@@ -32,9 +32,9 @@ PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = not PRODUCTION
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "https://michael-evan51-pantry-necromancer.pws.cs.ui.ac.id/"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "michael-evan51-pantry-necromancer.pws.cs.ui.ac.id"]
 
-CSRF_TRUSTED_ORIGINS = ["https://michael-evan51-pantry-necromancer.pws.cs.ui.ac.id/"]
+CSRF_TRUSTED_ORIGINS = ["https://michael-evan51-pantry-necromancer.pws.cs.ui.ac.id"]
 
 # Application definition
 
