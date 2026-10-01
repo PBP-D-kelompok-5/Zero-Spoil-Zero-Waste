@@ -1,0 +1,9 @@
+{% if messages %}
+  <div class="pn-container mt-6 flex flex-col gap-2">
+    {% for message in messages %}
+      <div class="pn-alert {% if message.tags == 'error' %}pn-tone-blood{% elif message.tags == 'warning' %}pn-tone-ember{% elif message.tags == 'success' %}pn-tone-ecto{% else %}pn-tone-frost{% endif %}" role="status">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

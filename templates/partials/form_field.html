@@ -1,0 +1,10 @@
+{% comment %}
+  Komponen field form bersama. Pakai di dalam <form class="pn-form">:
+  {% for field in form %}{% include 'partials/form_field.html' %}{% endfor %}
+{% endcomment %}
+<div class="pn-field">
+  <label class="pn-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+  {{ field }}
+  {% if field.help_text %}<div class="pn-help" id="{{ field.auto_id }}_helptext">{{ field.help_text|safe }}</div>{% endif %}
+  {% for error in field.errors %}<p class="pn-error">{{ error }}</p>{% endfor %}
+</div>

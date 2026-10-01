@@ -1,0 +1,70 @@
+{% load static %}
+<nav class="pn-nav">
+  <div class="pn-container flex h-16 items-center justify-between gap-4">
+    <a href="{% url 'main:show_main' %}" class="flex items-center gap-2.5">
+      <img src="{% static 'img/logo-mark.svg' %}" alt="" class="h-8 w-8" />
+      <span class="font-display text-lg font-semibold">Pantry <span class="italic text-ecto-300">Necromancer</span></span>
+    </a>
+
+    <div class="hidden items-center gap-1 lg:flex">
+      <a href="{% url 'main:show_main' %}#death-clock" class="pn-nav__link">Death Clock</a>
+      <a href="{% url 'main:show_main' %}#recipe-alchemist" class="pn-nav__link">Alchemist</a>
+      <a href="{% url 'main:show_main' %}#dead-drop" class="pn-nav__link">Dead Drop</a>
+      <a href="{% url 'main:show_main' %}#graveyard" class="pn-nav__link">Graveyard</a>
+      <a href="{% url 'main:show_main' %}#grimoire" class="pn-nav__link">Grimoire</a>
+    </div>
+
+    <div class="hidden items-center gap-2 lg:flex">
+      {% if user.is_authenticated %}
+        <span class="flex items-center gap-2 text-sm text-bone-200">
+          <span class="pn-avatar" aria-hidden="true">{{ user.username|slice:":1" }}</span>{{ user.username }}
+        </span>
+        <form method="post" action="{% url 'main:logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="pn-btn pn-btn--ghost pn-btn--sm">Keluar</button>
+        </form>
+      {% else %}
+        <a href="{% url 'main:login' %}" class="pn-btn pn-btn--ghost pn-btn--sm">Masuk</a>
+        <a href="{% url 'main:register' %}" class="pn-btn pn-btn--primary pn-btn--sm">Daftar</a>
+      {% endif %}
+    </div>
+
+    <button type="button" id="nav-toggle" class="pn-btn pn-btn--secondary lg:hidden" aria-controls="nav-mobile" aria-expanded="false" aria-label="Buka menu">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+    </button>
+  </div>
+
+  <div id="nav-mobile" class="pn-container hidden flex-col gap-1 pb-4 lg:hidden">
+    <a href="{% url 'main:show_main' %}#death-clock" class="pn-nav__link">Pantry Death Clock</a>
+    <a href="{% url 'main:show_main' %}#recipe-alchemist" class="pn-nav__link">Recipe Alchemist</a>
+    <a href="{% url 'main:show_main' %}#dead-drop" class="pn-nav__link">The Dead Drop</a>
+    <a href="{% url 'main:show_main' %}#graveyard" class="pn-nav__link">The Graveyard</a>
+    <a href="{% url 'main:show_main' %}#grimoire" class="pn-nav__link">Preservation Grimoire</a>
+    <hr class="my-2 border-crypt-700" />
+    {% if user.is_authenticated %}
+      <div class="flex items-center justify-between gap-3 px-3">
+        <span class="flex items-center gap-2 text-sm text-bone-200">
+          <span class="pn-avatar" aria-hidden="true">{{ user.username|slice:":1" }}</span>{{ user.username }}
+        </span>
+        <form method="post" action="{% url 'main:logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="pn-btn pn-btn--secondary pn-btn--sm">Keluar</button>
+        </form>
+      </div>
+    {% else %}
+      <div class="grid grid-cols-2 gap-2">
+        <a href="{% url 'main:login' %}" class="pn-btn pn-btn--secondary">Masuk</a>
+        <a href="{% url 'main:register' %}" class="pn-btn pn-btn--primary">Daftar</a>
+      </div>
+    {% endif %}
+  </div>
+</nav>
+
+<script>
+  document.getElementById("nav-toggle").addEventListener("click", function () {
+    const menu = document.getElementById("nav-mobile");
+    const open = menu.classList.toggle("hidden") === false;
+    menu.classList.toggle("flex", open);
+    this.setAttribute("aria-expanded", open);
+  });
+</script>
