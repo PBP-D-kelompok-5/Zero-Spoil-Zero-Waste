@@ -58,7 +58,11 @@
       <article id="{{ module.slug }}" class="pn-card pn-card--accent pn-tone-{{ module.tone }} flex scroll-mt-24 flex-col gap-3">
         <div class="flex items-center justify-between gap-3">
           <span class="text-xs font-semibold uppercase tracking-widest pn-muted">Modul {{ forloop.counter }}</span>
-          <span class="pn-badge pn-tone-{{ module.tone }}">Segera hadir</span>
+          {% if module.slug == 'grimoire' %}
+            <a href="{% url 'main:grimoire' %}" class="pn-badge pn-tone-{{ module.tone }}">Jelajahi panduan →</a>
+          {% else %}
+            <span class="pn-badge pn-tone-{{ module.tone }}">Segera hadir</span>
+          {% endif %}
         </div>
         <h3 class="font-display text-xl font-semibold">{{ module.name }}</h3>
         <p class="text-sm text-bone-200">{{ module.description }}</p>

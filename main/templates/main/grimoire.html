@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}Preservation Grimoire · Pantry Necromancer{% endblock title %}
+
+{% block content %}
+<section class="pn-container py-12 md:py-16">
+  <div class="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+    <div class="max-w-3xl">
+      <span class="pn-badge pn-tone-frost mb-5">Modul 5 · Preservation Grimoire</span>
+      <h1 class="pn-display">Simpan dengan bijak.<br><span class="italic text-frost-400">Cek dengan aman.</span></h1>
+      <p class="pn-lead mt-5 max-w-2xl">Panduan awal untuk merawat bahan makanan dan memahami batas uji sensori. Cari topik yang kamu butuhkan.</p>
+    </div>
+    <div class="pn-card pn-tone-frost flex items-center gap-4 lg:max-w-xs">
+      <span class="text-3xl" aria-hidden="true">📚</span>
+      <div><p class="font-semibold">Grimoire komunitas</p><p class="text-sm pn-muted">Rancangan awal · Checkpoint 2</p></div>
+    </div>
+  </div>
+
+  <div class="pn-alert pn-tone-ember mt-8" role="note">
+    <p class="font-semibold">Smell Test bukan jaminan aman.</p>
+    <p class="mt-1 text-sm text-bone-200">Kuman penyebab penyakit bisa tidak mengubah bau, rasa, atau tampilan makanan. Jangan mencicipi makanan untuk menguji keamanannya. Ikuti label dan panduan keamanan pangan tepercaya.</p>
+    <a class="pn-link mt-2 inline-block text-sm" href="https://www.fsis.usda.gov/food-safety/safe-food-handling-and-preparation/food-safety-basics/refrigeration" target="_blank" rel="noopener noreferrer">Baca panduan USDA FSIS tentang pendinginan dan keamanan pangan ↗</a>
+  </div>
+
+  <section class="mt-12" aria-labelledby="guide-list-title">
+    <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div><p class="text-xs font-semibold uppercase tracking-widest text-frost-400">Jelajahi</p><h2 id="guide-list-title" class="pn-heading mt-1">Panduan pengawetan</h2></div>
+      <p class="text-sm pn-muted">{{ guides|length }} panduan</p>
+    </div>
+
+    <form method="get" class="pn-form pn-card mb-6 grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+      <div class="pn-field mb-0">
+        <label class="pn-label" for="guide-search">Kata kunci</label>
+        <input id="guide-search" name="q" type="search" value="{{ query }}" placeholder="Contoh: kulkas, beku..." />
+      </div>
+      <div class="pn-field mb-0">
+        <label class="pn-label" for="guide-category">Kategori</label>
+        <select id="guide-category" name="category">
+          <option value="">Semua kategori</option>
+          {% for item in categories %}<option value="{{ item }}" {% if selected_category == item %}selected{% endif %}>{{ item }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="pn-field mb-0">
+        <label class="pn-label" for="guide-method">Metode</label>
+        <select id="guide-method" name="method">
+          <option value="">Semua metode</option>
+          {% for item in methods %}<option value="{{ item }}" {% if selected_method == item %}selected{% endif %}>{{ item }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="flex gap-2">
+        <button class="pn-btn pn-btn--primary" type="submit">Cari</button>
+        {% if query or selected_category or selected_method %}<a class="pn-btn pn-btn--ghost" href="{% url 'main:grimoire' %}">Reset</a>{% endif %}
+      </div>
+    </form>
+
+    {% if guides %}
+      <div class="grid gap-4 md:grid-cols-2">
+        {% for guide in guides %}
+          <article class="pn-card pn-card--accent pn-tone-{{ guide.tone }} flex flex-col gap-4">
+            <div class="flex items-start justify-between gap-4"><span class="text-3xl" aria-hidden="true">{{ guide.icon }}</span><span class="pn-badge pn-tone-{{ guide.tone }}">{{ guide.method }}</span></div>
+            <div><p class="text-xs font-semibold uppercase tracking-widest pn-muted">{{ guide.category }}</p><h3 class="font-display mt-1 text-xl font-semibold">{{ guide.title }}</h3></div>
+            <p class="text-sm text-bone-200">{{ guide.description }}</p>
+            <div class="mt-auto flex items-center justify-between border-t border-crypt-700 pt-4 text-sm pn-muted"><span>{{ guide.time }}</span><span>Contoh konten</span></div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="pn-card py-12 text-center"><p class="font-display text-xl font-semibold">Belum ada panduan yang cocok</p><p class="mt-2 text-sm pn-muted">Coba kata kunci atau filter lain.</p><a href="{% url 'main:grimoire' %}" class="pn-btn pn-btn--secondary mt-5">Lihat semua panduan</a></div>
+    {% endif %}
+  </section>
+
+  <section class="pn-card pn-tone-hex mt-12 grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
+    <div><p class="text-xs font-semibold uppercase tracking-widest text-hex-400">Langkah berikutnya</p><h2 class="pn-heading mt-2">Grimoire ini akan tumbuh bersama komunitas.</h2><p class="mt-2 text-sm text-bone-200">Kontribusi artikel, pembaruan, dan dukungan komunitas direncanakan untuk tahap implementasi berikutnya.</p></div>
+    <a href="{% url 'main:show_main' %}#modul" class="pn-btn pn-btn--secondary">Kembali ke modul</a>
+  </section>
+</section>
+{% endblock content %}
