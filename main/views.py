@@ -61,6 +61,74 @@ def show_main(request):
     return render(request, 'main/home.html', context)
 
 
+# Konten contoh untuk rancangan awal modul. Artikel komunitas akan dipindahkan ke
+# model database pada tahap implementasi CRUD.
+GRIMOIRE_GUIDES = [
+    {
+        'title': 'Kenali label tanggal pada kemasan',
+        'category': 'Produk kemasan',
+        'method': 'Panduan dasar',
+        'description': 'Mulai dari petunjuk penyimpanan dan tanggal pada label. Arti label dapat berbeda menurut produk dan aturan setempat.',
+        'icon': '🏷️',
+        'tone': 'frost',
+        'time': '4 menit baca',
+    },
+    {
+        'title': 'Rapikan kulkas untuk bahan yang mudah rusak',
+        'category': 'Sayur & buah',
+        'method': 'Penyimpanan',
+        'description': 'Rancang kebiasaan penyimpanan yang rapi: pisahkan bahan, cek kondisi kemasan, dan ikuti petunjuk produk.',
+        'icon': '🥬',
+        'tone': 'ecto',
+        'time': '5 menit baca',
+    },
+    {
+        'title': 'Bekukan bahan dengan rencana pakai',
+        'category': 'Semua bahan',
+        'method': 'Pembekuan',
+        'description': 'Beri label isi dan tanggal, gunakan wadah yang sesuai, lalu ikuti panduan penyimpanan tepercaya untuk jenis bahanmu.',
+        'icon': '❄️',
+        'tone': 'hex',
+        'time': '3 menit baca',
+    },
+    {
+        'title': 'Bedakan tanda penurunan mutu dan keamanan pangan',
+        'category': 'Panduan keamanan',
+        'method': 'Smell Test',
+        'description': 'Bau atau tampilan yang tidak normal adalah alasan untuk berhenti dan memeriksa panduan keamanan yang sesuai.',
+        'icon': '🧪',
+        'tone': 'ember',
+        'time': '6 menit baca',
+    },
+]
+
+
+def preservation_grimoire(request):
+    query = request.GET.get('q', '').strip()
+    category = request.GET.get('category', '').strip()
+    method = request.GET.get('method', '').strip()
+    guides = GRIMOIRE_GUIDES
+
+    if query:
+        query_lower = query.casefold()
+        guides = [guide for guide in guides if query_lower in ' '.join((
+            guide['title'], guide['category'], guide['method'], guide['description']
+        )).casefold()]
+    if category:
+        guides = [guide for guide in guides if guide['category'] == category]
+    if method:
+        guides = [guide for guide in guides if guide['method'] == method]
+
+    return render(request, 'main/grimoire.html', {
+        'guides': guides,
+        'query': query,
+        'selected_category': category,
+        'selected_method': method,
+        'categories': sorted({guide['category'] for guide in GRIMOIRE_GUIDES}),
+        'methods': sorted({guide['method'] for guide in GRIMOIRE_GUIDES}),
+    })
+
+
 def get_next_url(request):
     """Ambil ?next= hanya jika mengarah ke situs ini sendiri."""
     next_url = request.POST.get('next') or request.GET.get('next')

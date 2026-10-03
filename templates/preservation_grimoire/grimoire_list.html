@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto p-6">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-emerald-800">📖 Preservation Grimoire & Smell Test</h1>
+            <p class="text-gray-600">Panduan pengawetan pangan dan uji sensori kelayakan konsumsi.</p>
+        </div>
+        {% if user.is_authenticated %}
+        <a href="{% url 'preservation_grimoire:grimoire_create' %}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg shadow">
+            + Tambah Panduan
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <form method="GET" class="flex flex-col md:flex-row gap-4 mb-8">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Cari bahan makanan atau panduan..." class="flex-grow p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        <select name="category" class="p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="">Semua Kategori</option>
+            <option value="VEG" {% if selected_category == 'VEG' %}selected{% endif %}>Sayur & Buah</option>
+            <option value="MEAT" {% if selected_category == 'MEAT' %}selected{% endif %}>Daging & Protein</option>
+            <option value="DAIRY" {% if selected_category == 'DAIRY' %}selected{% endif %}>Produk Olahan Susu</option>
+            <option value="GRAIN" {% if selected_category == 'GRAIN' %}selected{% endif %}>Biji-bijian & Makanan Kering</option>
+            <option value="OTHER" {% if selected_category == 'OTHER' %}selected{% endif %}>Lainnya</option>
+        </select>
+        <button type="submit" class="bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition">Cari</button>
+    </form>
+
+    <!-- Guide List Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for guide in guides %}
+        <div class="bg-white border border-gray-200 rounded-xl shadow-md p-5 flex flex-col justify-between hover:shadow-lg transition">
+            <div>
+                <span class="text-xs font-semibold uppercase px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full">
+                    {{ guide.get_category_display }}
+                </span>
+                <h2 class="text-xl font-bold text-gray-800 mt-3 mb-1">
+                    <a href="{% url 'preservation_grimoire:grimoire_detail' guide.pk %}" class="hover:underline">
+                        {{ guide.title }}
+                    </a>
+                </h2>
+                <p class="text-sm text-gray-500 mb-3">Metode: <span class="font-medium text-gray-700">{{ guide.preservation_method }}</span></p>
+                <p class="text-gray-600 text-sm line-clamp-3 mb-4">{{ guide.content }}</p>
+            </div>
+            
+            <div class="flex justify-between items-center text-xs text-gray-500 border-t pt-3 mt-2">
+                <span>Oleh: {{ guide.author.username }}</span>
+                <span class="font-semibold text-emerald-700">👍 {{ guide.total_upvotes }} Upvotes</span>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full text-center py-12 text-gray-500">
+            Belum ada panduan pengawetan yang ditambahkan.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
