@@ -5,7 +5,7 @@
 ---
 
 ## 🔗 Tautan Penting
-* **Deployment (PWS):** [Tautan Deployment PWS - Diperbarui pada Checkpoint 2]
+* **Deployment (PWS):** https://michael-evan51-pantry-necromancer.pws.cs.ui.ac.id/
 * **Desain UI/UX (Figma):** [Tautan Prototipe Desain Figma]
 * **Repositori Git:** https://github.com/PBP-D-kelompok-5/Zero-Spoil-Zero-Waste
 
