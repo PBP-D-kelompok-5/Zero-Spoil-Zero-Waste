@@ -1,0 +1,63 @@
+{% comment %}Satu kartu bahan. Dipakai di daftar dan dikirim ulang lewat AJAX setelah jumlah diubah.{% endcomment %}
+<article id="dc-item-{{ item.pk }}" class="pn-card pn-card--accent pn-tone-{{ item.tone }} dc-card flex flex-col gap-4" data-dc-item="{{ item.pk }}">
+  <div class="flex items-start justify-between gap-3">
+    <div class="min-w-0">
+      <h3 class="truncate text-lg font-semibold" title="{{ item.name }}">{{ item.name }}</h3>
+      <p class="text-sm pn-muted">{{ item.get_category_display }} · {{ item.get_storage_display }}</p>
+    </div>
+    <span class="pn-badge pn-tone-{{ item.tone }}" title="{{ item.status_hint }}">{{ item.status_label }}</span>
+  </div>
+
+  <div>
+    <div class="flex items-baseline justify-between gap-3">
+      {% if item.is_resurrected %}
+        <p class="font-display text-2xl font-semibold dc-tone-text">Diselamatkan</p>
+        <p class="text-sm pn-muted">{{ item.resurrected_at|date:"j M Y" }}</p>
+      {% else %}
+        <p class="font-display text-2xl font-semibold dc-tone-text">{{ item.countdown_label }}</p>
+        <p class="text-sm pn-muted"{% if item.expiry_is_estimate %} title="Perkiraan otomatis dari kategori dan tempat simpan"{% endif %}>
+          {% if item.expiry_is_estimate %}≈ {% endif %}{{ item.expiry_date|date:"j M Y" }}
+        </p>
+      {% endif %}
+    </div>
+    {% if not item.is_resurrected %}
+      <div class="pn-meter mt-3" role="meter" aria-label="Sisa umur {{ item.name }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ item.life_percent }}">
+        <div class="pn-meter__fill" style="width: {{ item.life_percent }}%"></div>
+      </div>
+    {% endif %}
+  </div>
+
+  {% if item.notes %}<p class="text-sm text-bone-200">{{ item.notes }}</p>{% endif %}
+
+  <div class="mt-auto flex flex-col gap-2 border-t border-crypt-700 pt-4">
+    <div class="flex items-center justify-between gap-3">
+      {% if item.is_resurrected %}
+        <span class="text-sm pn-muted">{{ item.quantity }} {{ item.get_unit_display }}</span>
+      {% else %}
+        <form method="post" action="{% url 'death_clock:item_quantity' item.pk %}" class="dc-stepper" data-dc-action="quantity">
+          {% csrf_token %}
+          <button type="submit" name="delta" value="-1" class="dc-stepper__btn" aria-label="Kurangi jumlah {{ item.name }}"{% if item.quantity <= 1 %} disabled{% endif %}>−</button>
+          <span class="dc-stepper__value">{{ item.quantity }} <span class="pn-muted font-normal">{{ item.get_unit_display }}</span></span>
+          <button type="submit" name="delta" value="1" class="dc-stepper__btn" aria-label="Tambah jumlah {{ item.name }}">+</button>
+        </form>
+      {% endif %}
+      <form method="post" action="{% url 'death_clock:item_resurrect' item.pk %}" data-dc-action="resurrect">
+        {% csrf_token %}
+        {% if item.is_resurrected %}
+          <button type="submit" class="pn-btn pn-btn--secondary pn-btn--sm" title="Kembalikan ke inventaris aktif">Kembalikan</button>
+        {% else %}
+          <button type="submit" class="pn-btn pn-btn--sm dc-btn-resurrect" title="Tandai sudah dimasak atau dikonsumsi">✓ Sudah diolah</button>
+        {% endif %}
+      </form>
+    </div>
+    <div class="dc-card__links flex items-center gap-1">
+      {% if not item.is_resurrected %}
+        <a href="{% url 'death_clock:item_update' item.pk %}" class="pn-btn pn-btn--ghost pn-btn--sm" data-dc-modal="Ubah {{ item.name }}">Ubah</a>
+      {% endif %}
+      <form method="post" action="{% url 'death_clock:item_delete' item.pk %}" data-dc-action="delete">
+        {% csrf_token %}
+        <button type="submit" class="pn-btn pn-btn--ghost pn-btn--sm dc-danger" aria-label="Hapus {{ item.name }}">Hapus</button>
+      </form>
+    </div>
+  </div>
+</article>

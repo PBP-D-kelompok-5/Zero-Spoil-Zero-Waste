@@ -60,6 +60,8 @@
           <span class="text-xs font-semibold uppercase tracking-widest pn-muted">Modul {{ forloop.counter }}</span>
           {% if module.slug == 'grimoire' %}
             <a href="{% url 'main:grimoire' %}" class="pn-badge pn-tone-{{ module.tone }}">Jelajahi panduan →</a>
+          {% elif module.slug == 'death-clock' %}
+            <a href="{% url 'death_clock:pantry_list' %}" class="pn-badge pn-tone-{{ module.tone }}">Buka Death Clock →</a>
           {% else %}
             <span class="pn-badge pn-tone-{{ module.tone }}">Segera hadir</span>
           {% endif %}

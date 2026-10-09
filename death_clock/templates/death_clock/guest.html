@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Pantry Death Clock · Pantry Necromancer{% endblock title %}
+
+{% block content %}
+<section class="pn-container py-12 md:py-16">
+  <div class="grid items-center gap-10 lg:grid-cols-[1.1fr_1fr]">
+    <div class="flex flex-col gap-6">
+      <span class="pn-badge pn-tone-ecto self-start">Modul 1 · Pantry Death Clock</span>
+      <h1 class="pn-display">Setiap bahan punya <span class="italic text-ecto-300">detak terakhir.</span></h1>
+      <p class="pn-lead">
+        Death Clock mencatat isi kulkas dan rak dapurmu, lalu mengurutkannya dari yang paling dekat kedaluwarsa.
+        Inventaris bersifat privat, jadi masuk dulu untuk mulai mencatat.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <a href="{% url 'main:login' %}?next={{ request.path|urlencode }}" class="pn-btn pn-btn--primary">Masuk untuk mulai</a>
+        <a href="{% url 'main:register' %}?next={{ request.path|urlencode }}" class="pn-btn pn-btn--secondary">Buat akun</a>
+      </div>
+    </div>
+
+    <div class="pn-card flex flex-col gap-4">
+      <p class="text-xs font-semibold uppercase tracking-widest text-ecto-300">Cara membaca status</p>
+      <div class="flex items-start gap-4">
+        <span class="pn-badge pn-tone-blood mt-0.5 w-28 shrink-0 justify-center">Flatlining</span>
+        <p class="text-sm text-bone-200">Kedaluwarsa hari ini atau sudah lewat. Olah sekarang atau cek kondisinya.</p>
+      </div>
+      <div class="flex items-start gap-4">
+        <span class="pn-badge pn-tone-ember mt-0.5 w-28 shrink-0 justify-center">Critical</span>
+        <p class="text-sm text-bone-200">Sisa 1–{{ critical_days }} hari. Masukkan ke rencana masak terdekat.</p>
+      </div>
+      <div class="flex items-start gap-4">
+        <span class="pn-badge pn-tone-ecto mt-0.5 w-28 shrink-0 justify-center">Stable</span>
+        <p class="text-sm text-bone-200">Masih lebih dari {{ critical_days }} hari. Aman disimpan dulu.</p>
+      </div>
+      <div class="flex items-start gap-4">
+        <span class="pn-badge pn-tone-hex mt-0.5 w-28 shrink-0 justify-center">Resurrected</span>
+        <p class="text-sm text-bone-200">Sudah diolah atau dikonsumsi. Satu bahan batal jadi sampah.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock content %}
