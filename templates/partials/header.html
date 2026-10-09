@@ -7,7 +7,7 @@
     </a>
 
     <div class="hidden items-center gap-1 lg:flex">
-      <a href="{% url 'main:show_main' %}#death-clock" class="pn-nav__link">Death Clock</a>
+      <a href="{% url 'death_clock:pantry_list' %}" class="pn-nav__link">Death Clock</a>
       <a href="{% url 'main:show_main' %}#recipe-alchemist" class="pn-nav__link">Alchemist</a>
       <a href="{% url 'main:show_main' %}#dead-drop" class="pn-nav__link">Dead Drop</a>
       <a href="{% url 'main:show_main' %}#graveyard" class="pn-nav__link">Graveyard</a>
@@ -35,7 +35,7 @@
   </div>
 
   <div id="nav-mobile" class="pn-container hidden flex-col gap-1 pb-4 lg:hidden">
-    <a href="{% url 'main:show_main' %}#death-clock" class="pn-nav__link">Pantry Death Clock</a>
+    <a href="{% url 'death_clock:pantry_list' %}" class="pn-nav__link">Pantry Death Clock</a>
     <a href="{% url 'main:show_main' %}#recipe-alchemist" class="pn-nav__link">Recipe Alchemist</a>
     <a href="{% url 'main:show_main' %}#dead-drop" class="pn-nav__link">The Dead Drop</a>
     <a href="{% url 'main:show_main' %}#graveyard" class="pn-nav__link">The Graveyard</a>

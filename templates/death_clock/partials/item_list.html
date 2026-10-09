@@ -1,0 +1,51 @@
+{% comment %}
+  Daftar bahan. Dirender saat halaman dimuat dan ulang lewat AJAX ketika filter berubah.
+  Konteks: items, counts, filters, is_filtered.
+{% endcomment %}
+{% if counts.FLATLINING and not filters.status or counts.FLATLINING and filters.status == 'FLATLINING' %}
+  <div class="pn-alert pn-tone-blood mb-6" role="note">
+    <p class="font-semibold">{{ counts.FLATLINING }} bahan flatlining.</p>
+    <p class="mt-1 text-sm text-bone-200">Olah hari ini, atau cek kondisinya dulu. Kalau ragu soal keamanannya, jangan dicicipi.</p>
+  </div>
+{% endif %}
+
+<div class="mb-4 flex flex-wrap items-end justify-between gap-2">
+  <h2 class="pn-heading">
+    {% if filters.status == 'RESURRECTED' %}Sudah diselamatkan{% else %}Inventaris aktif{% endif %}
+  </h2>
+  <p class="text-sm pn-muted">{{ items|length }} bahan{% if is_filtered %} cocok dengan filter{% endif %}</p>
+</div>
+
+{% if items %}
+  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    {% for item in items %}
+      {% include 'death_clock/partials/item_card.html' %}
+    {% endfor %}
+  </div>
+{% elif not counts.ACTIVE and not counts.RESURRECTED %}
+  <div class="pn-card dc-empty">
+    <p class="font-display text-xl font-semibold">Kulkasmu masih sepi</p>
+    <p class="mx-auto mt-2 max-w-md text-sm pn-muted">Catat bahan yang baru dibeli. Kalau tanggal kedaluwarsanya belum tahu, kosongkan saja, Death Clock akan memperkirakannya.</p>
+    <div class="mt-5 flex flex-wrap justify-center gap-2">
+      <a href="{% url 'death_clock:item_create' %}" class="pn-btn pn-btn--primary" data-dc-modal="Tambah bahan">+ Tambah bahan</a>
+      <a href="{% url 'death_clock:item_bulk_create' %}" class="pn-btn pn-btn--secondary" data-dc-modal="Tambah massal">Tambah massal</a>
+    </div>
+  </div>
+{% elif is_filtered %}
+  <div class="pn-card dc-empty">
+    {% if filters.status == 'FLATLINING' and not filters.q and not filters.category and not filters.storage %}
+      <p class="font-display text-xl font-semibold">Tidak ada yang flatlining.</p>
+      <p class="mt-2 text-sm pn-muted">Semua bahan aktif masih punya waktu. Pertahankan!</p>
+    {% else %}
+      <p class="font-display text-xl font-semibold">Tidak ada bahan yang cocok</p>
+      <p class="mt-2 text-sm pn-muted">Coba kata kunci atau filter lain.</p>
+    {% endif %}
+    <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--secondary mt-5" data-dc-reset>Lihat semua bahan aktif</a>
+  </div>
+{% else %}
+  <div class="pn-card pn-tone-hex dc-empty">
+    <p class="font-display text-xl font-semibold">Inventaris kosong, tidak ada yang terbuang.</p>
+    <p class="mt-2 text-sm pn-muted">{{ counts.RESURRECTED }} bahan sudah kamu selamatkan. Catat belanjaan berikutnya di sini.</p>
+    <a href="{% url 'death_clock:item_create' %}" class="pn-btn pn-btn--primary mt-5" data-dc-modal="Tambah bahan">+ Tambah bahan</a>
+  </div>
+{% endif %}
