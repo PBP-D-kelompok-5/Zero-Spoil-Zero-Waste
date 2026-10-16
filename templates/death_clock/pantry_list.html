@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pantry Death Clock · Pantry Necromancer{% endblock title %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'death_clock/death_clock.css' %}" />
+{% endblock extra_head %}
+
+{% block content %}
+<div class="pn-container py-10 md:py-14" data-dc-root>
+  {% csrf_token %}
+
+  <header class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+    <div class="max-w-2xl">
+      <span class="pn-badge pn-tone-ecto mb-4">Modul 1 · Pantry Death Clock</span>
+      <h1 class="pn-display">Setiap bahan punya <span class="italic text-ecto-300">detak terakhir.</span></h1>
+      <p class="pn-lead mt-4">Bahan diurutkan dari yang paling dekat kedaluwarsa, jadi kamu tahu mana yang perlu diolah duluan.</p>
+    </div>
+    <div class="flex flex-wrap gap-2 md:justify-end">
+      <a href="{% url 'death_clock:item_create' %}" class="pn-btn pn-btn--primary" data-dc-modal="Tambah bahan">+ Tambah bahan</a>
+      <a href="{% url 'death_clock:item_bulk_create' %}" class="pn-btn pn-btn--secondary" data-dc-modal="Tambah massal">Tambah massal</a>
+    </div>
+  </header>
+
+  {# Ringkasan status; klik kotak untuk memfilter daftar #}
+  <section class="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Ringkasan status">
+    {% for tile in tiles %}
+      <a href="?status={{ tile.status }}" class="dc-tile pn-tone-{{ tile.tone }}{% if filters.status == tile.status %} is-active{% endif %}" data-dc-status="{{ tile.status }}" aria-pressed="{% if filters.status == tile.status %}true{% else %}false{% endif %}">
+        <span class="dc-tile__label">{{ tile.label }}</span>
+        <span class="font-display text-3xl font-semibold leading-none" data-dc-count="{{ tile.status }}">{{ tile.count }}</span>
+        <span class="text-xs pn-muted">{{ tile.hint }}</span>
+      </a>
+    {% endfor %}
+  </section>
+
+  <form method="get" action="{% url 'death_clock:pantry_list' %}" class="pn-form pn-card dc-filter mt-6 grid grid-cols-2 items-end gap-3 sm:gap-4 lg:grid-cols-[1.6fr_1fr_1fr_1fr_auto]" data-dc-filter role="search">
+    <div class="pn-field col-span-2 lg:col-span-1">
+      <label class="pn-label" for="{{ filter_form.q.id_for_label }}">Cari</label>{{ filter_form.q }}
+    </div>
+    <div class="pn-field col-span-2 sm:col-span-1">
+      <label class="pn-label" for="{{ filter_form.status.id_for_label }}">Status</label>{{ filter_form.status }}
+    </div>
+    <div class="pn-field">
+      <label class="pn-label" for="{{ filter_form.category.id_for_label }}">Kategori</label>{{ filter_form.category }}
+    </div>
+    <div class="pn-field">
+      <label class="pn-label" for="{{ filter_form.storage.id_for_label }}">Tempat simpan</label>{{ filter_form.storage }}
+    </div>
+    <div class="col-span-2 flex gap-2 sm:col-span-1 lg:col-span-1">
+      <button class="pn-btn pn-btn--primary flex-1 lg:flex-none" type="submit">Terapkan</button>
+      <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--ghost" data-dc-reset>Reset</a>
+    </div>
+  </form>
+
+  <div id="dc-list" class="mt-8" aria-live="polite">
+    {% include 'death_clock/partials/item_list.html' %}
+  </div>
+
+  <p class="mt-12 max-w-3xl text-xs pn-muted">
+    Tanggal bertanda ≈ adalah perkiraan otomatis dari kategori dan tempat simpan. Perkiraan dan sisa hari di sini
+    bukan jaminan keamanan pangan: ikuti label kemasan, dan jangan mencicipi makanan untuk mengecek apakah masih aman.
+  </p>
+
+  <dialog id="dc-dialog" class="dc-dialog" aria-labelledby="dc-dialog-title">
+    <div class="flex items-center justify-between gap-4 border-b border-crypt-700 px-5 py-4 sm:px-6">
+      <h2 id="dc-dialog-title" class="font-display text-xl font-semibold">Tambah bahan</h2>
+      <button type="button" class="pn-btn pn-btn--ghost pn-btn--sm" data-dc-close aria-label="Tutup">✕</button>
+    </div>
+    <div class="px-5 py-5 sm:px-6" data-dc-dialog-body></div>
+  </dialog>
+
+  <div id="dc-toasts" class="dc-toasts" aria-live="polite"></div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script src="{% static 'death_clock/death_clock.js' %}" defer></script>
+{% endblock scripts %}

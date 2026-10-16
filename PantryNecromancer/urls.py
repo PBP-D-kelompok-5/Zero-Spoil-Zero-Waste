@@ -21,4 +21,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('main.urls')),
     path('grimoire/', include('preservation_grimoire.urls')),
+    path('death-clock/', include('death_clock.urls')),
 ]

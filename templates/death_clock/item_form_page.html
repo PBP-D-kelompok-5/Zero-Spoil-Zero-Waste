@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} · Pantry Death Clock{% endblock title %}
+
+{% block content %}
+<section class="pn-container flex justify-center py-10 sm:py-14">
+  <div class="w-full max-w-xl">
+    <a href="{% url 'death_clock:pantry_list' %}" class="pn-link text-sm">← Kembali ke Death Clock</a>
+    <h1 class="pn-heading mb-6 mt-4">{{ title }}</h1>
+    <div class="pn-card">
+      {% include 'death_clock/partials/item_form.html' %}
+    </div>
+  </div>
+</section>
+{% endblock content %}

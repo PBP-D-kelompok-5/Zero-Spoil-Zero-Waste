@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'preservation_grimoire',
+    'death_clock',
     'main',
 ]
 
@@ -131,7 +132,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'id'  # pesan error form & autentikasi dalam bahasa Indonesia
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Jakarta'  # "hari ini" di Death Clock mengikuti WIB, bukan UTC
 
 USE_I18N = True
 

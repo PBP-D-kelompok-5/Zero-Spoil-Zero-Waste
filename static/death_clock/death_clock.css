@@ -1,0 +1,104 @@
+/* =========================================================
+   Pantry Death Clock: gaya khusus modul.
+   Melengkapi design system di static/css/global.css (token --pn-*, .pn-*).
+   ========================================================= */
+
+.dc-tone-text { color: rgb(var(--pn-tone)); }
+
+/* Override jarak ditaruh di sini (dimuat setelah global.css), bukan lewat utility Tailwind,
+   supaya hasilnya tidak bergantung pada urutan pemuatan CDN Tailwind. */
+.dc-card { padding: 1.25rem; }
+.dc-card__links { margin-left: -0.5rem; }
+.dc-empty { padding-block: 3rem; text-align: center; }
+.dc-filter { padding: 1rem; }
+.dc-filter .pn-field { margin-bottom: 0; }
+@media (min-width: 640px) { .dc-filter { padding: 1.25rem; } }
+
+/* ---------- Kotak ringkasan status ---------- */
+.dc-tile {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  padding: 1rem 1.125rem;
+  background: rgb(var(--pn-crypt-900));
+  border: 1px solid rgb(var(--pn-crypt-700));
+  border-radius: calc(var(--pn-radius) + 4px);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.dc-tile:hover { border-color: rgb(var(--pn-tone) / 0.55); }
+.dc-tile.is-active { border-color: rgb(var(--pn-tone)); background: rgb(var(--pn-tone) / 0.08); }
+.dc-tile:focus-visible { outline: 2px solid rgb(var(--pn-tone)); outline-offset: 2px; }
+.dc-tile__label {
+  display: flex; align-items: center; gap: 0.5rem;
+  color: rgb(var(--pn-tone));
+  font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.dc-tile__label::before {
+  content: ""; width: 0.5rem; height: 0.5rem; border-radius: 999px;
+  background: rgb(var(--pn-tone));
+}
+.pn-tone-blood .dc-tile__label::before { animation: dc-pulse 1.6s ease-in-out infinite; }
+
+/* ---------- Stepper jumlah ---------- */
+.dc-stepper {
+  display: inline-flex; align-items: center;
+  border: 1px solid rgb(var(--pn-crypt-700)); border-radius: var(--pn-radius);
+  overflow: hidden;
+}
+.dc-stepper__btn {
+  display: grid; place-items: center; width: 2.25rem; height: 2.25rem;
+  color: rgb(var(--pn-bone-200)); font-size: 1.125rem; line-height: 1;
+}
+.dc-stepper__btn:hover:not(:disabled) { background: rgb(var(--pn-crypt-800)); color: rgb(var(--pn-bone-50)); }
+.dc-stepper__btn:focus-visible { outline: 2px solid rgb(var(--pn-ecto-300)); outline-offset: -2px; }
+.dc-stepper__btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.dc-stepper__value { min-width: 4.75rem; padding-inline: 0.375rem; text-align: center; font-size: 0.875rem; font-weight: 600; }
+
+/* ---------- Tombol "Sudah diolah" (warna Hex = Resurrected) ---------- */
+.dc-btn-resurrect {
+  color: rgb(var(--pn-hex-400));
+  background: rgb(var(--pn-hex-400) / 0.1);
+  border-color: rgb(var(--pn-hex-400) / 0.4);
+}
+.dc-btn-resurrect:hover { background: rgb(var(--pn-hex-400) / 0.2); border-color: rgb(var(--pn-hex-400)); }
+
+/* ---------- Tombol hapus dua langkah ---------- */
+.dc-danger { color: rgb(var(--pn-blood-400)); }
+.dc-danger:hover { background: rgb(var(--pn-blood-400) / 0.12); color: rgb(var(--pn-blood-400)); }
+.dc-danger.is-armed, .dc-danger.is-armed:hover { background: rgb(var(--pn-blood-400)); color: rgb(var(--pn-crypt-950)); }
+
+/* ---------- Status muat ---------- */
+[aria-busy="true"], form[data-busy] { opacity: 0.55; pointer-events: none; transition: opacity 0.15s; }
+
+/* ---------- Modal (elemen <dialog> bawaan) ---------- */
+.dc-dialog {
+  width: min(36rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem);
+  margin: auto; padding: 0;
+  background: rgb(var(--pn-crypt-900)); color: rgb(var(--pn-bone-50));
+  border: 1px solid rgb(var(--pn-crypt-700)); border-radius: calc(var(--pn-radius) + 4px);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.5);
+}
+.dc-dialog::backdrop { background: rgb(var(--pn-crypt-950) / 0.75); backdrop-filter: blur(4px); }
+.dc-dialog[open] { animation: dc-pop 0.16s ease-out; }
+
+/* ---------- Toast ---------- */
+.dc-toasts {
+  position: fixed; z-index: 60; left: 1rem; right: 1rem; bottom: 1rem;
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  pointer-events: none;
+}
+@media (min-width: 640px) { .dc-toasts { left: auto; right: 1.5rem; align-items: flex-end; } }
+.dc-toast {
+  max-width: 24rem; pointer-events: auto;
+  background: linear-gradient(rgb(var(--pn-tone) / 0.14), rgb(var(--pn-tone) / 0.14)), rgb(var(--pn-crypt-800));
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.4);
+  animation: dc-rise 0.2s ease-out;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.dc-toast.is-leaving { opacity: 0; transform: translateY(6px); }
+
+@keyframes dc-pulse { 50% { opacity: 0.35; } }
+@keyframes dc-pop { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+@keyframes dc-rise { from { opacity: 0; transform: translateY(8px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pn-tone-blood .dc-tile__label::before, .dc-dialog[open], .dc-toast { animation: none; }
+}
