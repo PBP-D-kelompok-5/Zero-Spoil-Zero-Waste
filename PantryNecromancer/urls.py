@@ -22,4 +22,5 @@ urlpatterns = [
     path('', include('main.urls')),
     path('grimoire/', include('preservation_grimoire.urls')),
     path('death-clock/', include('death_clock.urls')),
+    path('graveyard/', include('graveyard.urls')),
 ]
