@@ -1,0 +1,812 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load graveyard_tags %}
+
+{% block title %}The Graveyard & Waste Analytics · Pantry Necromancer{% endblock title %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'death_clock/death_clock.css' %}" />
+<style>
+  @keyframes reaper-slash {
+    0% {
+      filter: brightness(1) drop-shadow(0 0 0 transparent);
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+    25% {
+      filter: brightness(1.6) drop-shadow(0 0 18px rgba(240, 122, 110, 0.8));
+      background-color: rgba(180, 30, 30, 0.3) !important;
+      border-color: #F07A6E !important;
+      transform: translateY(-4px) scale(1.01);
+    }
+    55% {
+      filter: grayscale(100%) contrast(130%) blur(1.5px);
+      background-color: rgba(18, 9, 9, 0.95) !important;
+      transform: translateY(8px) scale(0.97);
+      opacity: 0.7;
+    }
+    100% {
+      filter: grayscale(100%) blur(8px);
+      transform: translateY(40px) scale(0.82);
+      opacity: 0;
+    }
+  }
+
+  .reaper-slashed {
+    animation: reaper-slash 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+    pointer-events: none !important;
+  }
+</style>
+{% endblock extra_head %}
+
+{% block content %}
+<div class="pn-container py-10 md:py-14">
+  {% csrf_token %}
+
+  {# 1. Hero Section: Selaras dengan death_clock, mood memorial/analitik #}
+  <header class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+    <div class="max-w-2xl">
+      <span class="pn-badge pn-tone-blood mb-4">Modul · The Graveyard</span>
+      <h1 class="pn-display">Monumen bahan pangan yang <span class="italic text-blood-400">gagal diselamatkan.</span></h1>
+      <p class="pn-lead mt-4">
+        Catatan memorial bahan makanan yang berakhir di tempat sampah serta neraca analitik kerugian finansial dan jejak emisi karbon pribadi.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2 md:justify-end">
+      <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--secondary">← Kembali ke Death Clock</a>
+      <a href="{% url 'graveyard:graveyard_json' %}" target="_blank" class="pn-btn pn-btn--secondary">Ekspor Data (JSON)</a>
+    </div>
+  </header>
+
+  {# 2. Metric Cards: Struktur kartu analitik selaras dengan kartu status death_clock (dot indikator, angka besar, subteks kecil) #}
+  <section class="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Ringkasan Analitik Limbah">
+    {# Kartu 1: Total Item Bulan Ini #}
+    <div class="dc-tile pn-tone-blood">
+      <span class="dc-tile__label">Bulan Ini ({{ analytics.month_name }})</span>
+      <span class="font-display text-3xl font-semibold leading-none tabular-nums text-bone-50">
+        {{ analytics.total_this_month }} <span class="text-xs font-sans font-normal text-bone-400">item</span>
+      </span>
+      <span class="text-xs pn-muted">Kerugian: <strong class="text-blood-400">{{ analytics.loss_this_month|rupiah }}</strong></span>
+    </div>
+
+    {# Kartu 2: Kategori Paling Sering Terbuang #}
+    <div class="dc-tile pn-tone-ember">
+      <span class="dc-tile__label">Paling Sering Terbuang</span>
+      {% if analytics.top_category %}
+        <span class="font-display text-2xl sm:text-3xl font-semibold leading-none text-bone-50 truncate" title="{{ analytics.top_category.label }}">
+          {{ analytics.top_category.label }}
+        </span>
+        <span class="text-xs pn-muted">Terbuang <strong class="text-ember-400">{{ analytics.top_category.count }} kali</strong></span>
+      {% else %}
+        <span class="font-display text-3xl font-semibold leading-none text-bone-400">—</span>
+        <span class="text-xs pn-muted">Belum ada catatan limbah</span>
+      {% endif %}
+    </div>
+
+    {# Kartu 3: Total Kerugian Uang #}
+    <div class="dc-tile pn-tone-blood">
+      <span class="dc-tile__label">Total Kerugian Uang</span>
+      <span class="font-display text-3xl font-semibold leading-none tabular-nums text-blood-400">
+        {{ analytics.total_loss|rupiah }}
+      </span>
+      <span class="text-xs pn-muted">Dari total {{ analytics.total_items }} bahan terbuang</span>
+    </div>
+
+    {# Kartu 4: Jejak Karbon CO2e #}
+    <div class="dc-tile pn-tone-frost">
+      <span class="dc-tile__label">Jejak Karbon (CO₂e)</span>
+      <span class="font-display text-3xl font-semibold leading-none tabular-nums text-frost-400">
+        {{ analytics.total_carbon_kg }} <span class="text-xs font-sans font-normal text-bone-200">kg</span>
+      </span>
+      <span class="text-xs pn-muted">Bobot sampah bersih: ~{{ analytics.total_weight_kg }} kg</span>
+    </div>
+  </section>
+
+  {# 2.5 The Haunting Wrapped: Bisikan Arwah Pangan (Carousel 5 Detik) #}
+  {% if wrapped_slides %}
+  <section id="haunting-wrapped-container" class="mt-8 relative overflow-hidden rounded-xl border border-crypt-700 bg-crypt-900 p-5 md:p-6 transition-all hover:border-blood-400/50 shadow-sm" aria-label="The Haunting Wrapped: Bisikan Arwah Pangan" tabindex="0">
+    {# Stories-style top progress bars #}
+    <div class="grid grid-flow-col gap-1.5 w-full mb-4" id="wrapped-progress-bars" aria-hidden="true">
+      {% for slide in wrapped_slides %}
+        <div class="h-1 rounded-full bg-crypt-800 overflow-hidden">
+          <div class="h-full bg-blood-400 w-0 transition-all duration-100 ease-linear wrapped-bar-fill" data-bar-index="{{ forloop.counter0 }}"></div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {# Slides Wrapper: Menggunakan CSS Grid col-start-1 row-start-1 agar tidak ada overlapping horizontal atau resize layout jump #}
+    <div class="relative grid grid-cols-1 grid-rows-1 min-h-[190px] sm:min-h-[170px] md:min-h-[150px] items-center" id="wrapped-slides-deck">
+      {% for slide in wrapped_slides %}
+        <div class="wrapped-slide col-start-1 row-start-1 w-full transition-all duration-500 ease-in-out {% if forloop.first %}opacity-100 pointer-events-auto z-10 visible{% else %}opacity-0 pointer-events-none z-0 invisible{% endif %}" data-slide-index="{{ forloop.counter0 }}" aria-hidden="{% if forloop.first %}false{% else %}true{% endif %}">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <span class="pn-badge pn-tone-{{ slide.tone }} text-[11px] uppercase tracking-wider font-semibold">
+              {{ slide.tag }}
+            </span>
+            <span class="text-xs font-mono text-bone-400">
+              0{{ forloop.counter }} / 0{{ wrapped_slides|length }}
+            </span>
+          </div>
+
+          <div class="md:flex md:items-center md:justify-between md:gap-6 mt-2">
+            <div class="max-w-2xl">
+              {% if slide.is_quote %}
+                <blockquote class="font-display text-xl sm:text-2xl lg:text-3xl font-semibold text-bone-50 leading-snug tracking-tight">
+                  {{ slide.headline }}
+                </blockquote>
+                <p class="font-display italic text-sm text-blood-400 mt-2">
+                  — {{ slide.author }}
+                </p>
+                <p class="text-xs text-bone-400 mt-1">
+                  {{ slide.detail }}
+                </p>
+              {% else %}
+                <h3 class="font-display text-xl sm:text-2xl lg:text-3xl font-semibold text-bone-50 tracking-tight">
+                  {{ slide.headline }}
+                </h3>
+                <p class="text-sm text-bone-200 mt-2 leading-relaxed">
+                  {{ slide.detail }}
+                </p>
+                {% if slide.author %}
+                  <p class="text-xs text-bone-400 mt-1.5">— {{ slide.author }}</p>
+                {% endif %}
+              {% endif %}
+            </div>
+
+            {% if slide.stat_value %}
+              <div class="mt-4 md:mt-0 md:text-right shrink-0 rounded-lg border border-crypt-700/80 bg-crypt-950/80 p-3.5">
+                <span class="block font-display text-2xl lg:text-3xl font-bold text-bone-50 tabular-nums">
+                  {{ slide.stat_value }}
+                </span>
+                <span class="block text-xs text-bone-400 mt-0.5">
+                  {{ slide.stat_label }}
+                </span>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {# Controls Bar: Tombol Jeda yang tactile, mudah ditekan, dan indikator status yang jelas #}
+    <div class="mt-4 pt-3 border-t border-crypt-700/70 flex flex-wrap items-center justify-between gap-3 text-xs text-bone-400">
+      <div class="flex items-center gap-2.5">
+        <button
+          type="button"
+          id="wrapped-toggle-pause"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-crypt-700 bg-crypt-800/90 text-xs font-medium text-bone-200 hover:text-bone-50 hover:border-blood-400/50 hover:bg-crypt-800 active:scale-95 transition-all select-none shadow-sm cursor-pointer focus:outline-none focus:ring-1 focus:ring-blood-400"
+          aria-pressed="false"
+          aria-label="Jeda putar otomatis"
+        >
+          <span id="wrapped-pause-icon" class="inline-flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-bone-300" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z"/>
+            </svg>
+            <span id="wrapped-pause-text">Jeda</span>
+          </span>
+        </button>
+        <span class="hidden sm:inline text-crypt-700">|</span>
+        <span class="text-xs text-bone-400" id="wrapped-status-hint">
+          Ganti otomatis tiap 8 detik · Arahkan kursor atau klik Jeda
+        </span>
+      </div>
+
+      <div class="flex items-center gap-1.5">
+        <button
+          type="button"
+          id="wrapped-prev-btn"
+          class="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-crypt-700 bg-crypt-800/90 hover:bg-crypt-800 hover:border-crypt-600 text-bone-200 hover:text-bone-50 active:scale-95 transition-all text-base font-bold cursor-pointer focus:outline-none focus:ring-1 focus:ring-blood-400"
+          aria-label="Slide sebelumnya"
+          title="Slide sebelumnya (←)"
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          id="wrapped-next-btn"
+          class="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-crypt-700 bg-crypt-800/90 hover:bg-crypt-800 hover:border-crypt-600 text-bone-200 hover:text-bone-50 active:scale-95 transition-all text-base font-bold cursor-pointer focus:outline-none focus:ring-1 focus:ring-blood-400"
+          aria-label="Slide berikutnya"
+          title="Slide berikutnya (→)"
+        >
+          ›
+        </button>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {# 3. Filter Bar: Selaras dengan styling dc-filter death_clock (container, tombol Terapkan, dan teks Reset) #}
+  <form method="get" action="{% url 'graveyard:graveyard_list' %}" class="pn-form pn-card dc-filter mt-6 grid grid-cols-2 items-end gap-3 sm:gap-4 lg:grid-cols-[1.8fr_1.2fr_1.2fr_auto]" role="search">
+    <div class="pn-field col-span-2 lg:col-span-1">
+      <label class="pn-label" for="q">Cari</label>
+      <input type="text" id="q" name="q" value="{{ search_query }}" placeholder="Nama bahan makanan atau catatan..." class="pn-input" />
+    </div>
+
+    <div class="pn-field col-span-2 sm:col-span-1 lg:col-span-1">
+      <label class="pn-label" for="category">Kategori</label>
+      <select id="category" name="category" class="pn-input">
+        <option value="">Semua Kategori</option>
+        {% for code, label in categories %}
+          <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="pn-field col-span-2 sm:col-span-1 lg:col-span-1">
+      <label class="pn-label" for="reason">Alasan</label>
+      <select id="reason" name="reason" class="pn-input">
+        <option value="">Semua Alasan</option>
+        {% for code, label in reasons %}
+          <option value="{{ code }}" {% if selected_reason == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-span-2 flex gap-2 sm:col-span-1 lg:col-span-1">
+      <button class="pn-btn pn-btn--primary flex-1 lg:flex-none" type="submit">Terapkan</button>
+      <a href="{% url 'graveyard:graveyard_list' %}" class="pn-btn pn-btn--ghost">Reset</a>
+    </div>
+  </form>
+
+  {# 4. Daftar Memorial Makam Pangan: Khidmat & Fungsional #}
+  <section class="mt-8">
+    <div class="flex items-center justify-between pb-3 border-b border-crypt-700">
+      <h2 class="font-display text-xl font-semibold text-bone-50">
+        Batu Nisan Pangan
+        <span id="graveyard-items-count" class="text-sm font-sans font-normal text-bone-400">({{ items.count }})</span>
+      </h2>
+      {% if items %}
+        <span class="text-xs pn-muted">Diurutkan dari tanggal pemakaman terbaru</span>
+      {% endif %}
+    </div>
+
+    {% if items %}
+      {# Tabel Desktop Berdensitas Tinggi & Khidmat #}
+      <div class="hidden lg:block mt-4 overflow-x-auto rounded-xl border border-crypt-700 bg-crypt-900">
+        <table class="w-full text-left text-sm text-bone-200">
+          <thead class="border-b border-crypt-700 bg-crypt-950/70 text-xs font-semibold uppercase tracking-wider text-bone-400">
+            <tr>
+              <th scope="col" class="py-3.5 px-4">Bahan Makanan & Catatan</th>
+              <th scope="col" class="py-3.5 px-4">Kategori</th>
+              <th scope="col" class="py-3.5 px-4">Alasan Pembuangan</th>
+              <th scope="col" class="py-3.5 px-4">Waktu Dibuang</th>
+              <th scope="col" class="py-3.5 px-4 text-right">Kuantitas</th>
+              <th scope="col" class="py-3.5 px-4 text-right">Kerugian</th>
+              <th scope="col" class="py-3.5 px-4 text-right">Emisi CO₂</th>
+              <th scope="col" class="py-3.5 px-4 text-center">Tindakan</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-crypt-700/60">
+            {% for item in items %}
+              <tr id="graveyard-row-{{ item.pk }}" class="transition-all duration-300 hover:bg-crypt-800/40">
+                <td class="py-4 px-4 font-medium text-bone-50">
+                  <div class="font-semibold text-base">{{ item.name }}</div>
+                  {% if item.notes %}
+                    <div class="mt-0.5 text-xs text-bone-400 italic">"{{ item.notes }}"</div>
+                  {% endif %}
+                </td>
+                <td class="py-4 px-4 whitespace-nowrap text-xs">
+                  <span class="pn-badge pn-tone-blood text-xs">
+                    {{ item.get_category_display }}
+                  </span>
+                </td>
+                <td class="py-4 px-4 text-xs text-bone-200">
+                  <span class="text-ember-400 font-medium">{{ item.get_reason_display }}</span>
+                </td>
+                <td class="py-4 px-4 whitespace-nowrap text-xs text-bone-400">
+                  <div>Dibuang: <span class="text-bone-200">{{ item.disposed_at|date:"d M Y" }}</span></div>
+                  {% if item.expiry_date %}
+                    <div class="text-[11px] text-bone-400">Kedaluwarsa: {{ item.expiry_date|date:"d M Y" }}</div>
+                  {% endif %}
+                </td>
+                <td class="py-4 px-4 whitespace-nowrap text-right font-medium tabular-nums text-bone-200">
+                  {{ item.quantity }} {{ item.get_unit_display }}
+                  {% if item.weight_g > 0 %}
+                    <div class="text-[11px] text-bone-400 font-normal">({{ item.weight_g|floatformat:0 }} g)</div>
+                  {% endif %}
+                </td>
+                <td class="py-4 px-4 whitespace-nowrap text-right font-semibold tabular-nums text-blood-400">
+                  {{ item.estimated_loss|rupiah }}
+                </td>
+                <td class="py-4 px-4 whitespace-nowrap text-right text-xs tabular-nums text-frost-400">
+                  ~{{ item.estimated_carbon_kg }} kg
+                </td>
+                <td class="py-4 px-4 whitespace-nowrap text-center">
+                  <form method="post" action="{% url 'graveyard:graveyard_delete' item.pk %}" class="graveyard-delete-form" data-item-id="{{ item.pk }}" data-item-name="{{ item.name }}">
+                    {% csrf_token %}
+                    <button type="button" class="graveyard-delete-trigger text-xs text-blood-400/80 hover:text-blood-400 hover:underline cursor-pointer flex items-center justify-center gap-1 mx-auto" title="Cabut nisan {{ item.name }}">
+                      <span>Hapus</span>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {# Tampilan Mobile & Tablet: Kartu Memorial Ringkas #}
+      <div class="lg:hidden mt-4 grid gap-3 sm:grid-cols-2">
+        {% for item in items %}
+          <article id="graveyard-card-{{ item.pk }}" class="pn-card pn-card--accent pn-tone-blood flex flex-col justify-between p-4 transition-all duration-300 hover:border-blood-400/50">
+            <div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <h3 class="font-display text-lg font-semibold text-bone-50 truncate" title="{{ item.name }}">
+                    {{ item.name }}
+                  </h3>
+                  <div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                    <span class="pn-badge pn-tone-blood text-xs">
+                      {{ item.get_category_display }}
+                    </span>
+                    <span class="text-bone-400">
+                      {{ item.quantity }} {{ item.get_unit_display }}
+                    </span>
+                  </div>
+                </div>
+                <div class="text-right shrink-0">
+                  <span class="font-semibold text-blood-400 tabular-nums">
+                    {{ item.estimated_loss|rupiah }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="mt-3 rounded border border-crypt-700/60 bg-crypt-950 p-2.5 text-xs">
+                <p class="text-ember-400 font-medium">{{ item.get_reason_display }}</p>
+                {% if item.notes %}
+                  <p class="mt-1 text-bone-400 italic">"{{ item.notes }}"</p>
+                {% endif %}
+              </div>
+
+              <div class="mt-3 flex items-center justify-between text-xs text-bone-400">
+                <span>Dibuang: <strong class="text-bone-200">{{ item.disposed_at|date:"d M Y" }}</strong></span>
+                {% if item.expiry_date %}
+                  <span>Expired: {{ item.expiry_date|date:"d M Y" }}</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-crypt-700/60 flex items-center justify-between">
+              <span class="text-xs text-frost-400 tabular-nums" title="Estimasi jejak emisi karbon limbah">
+                ~{{ item.estimated_carbon_kg }} kg CO₂e
+              </span>
+              <form method="post" action="{% url 'graveyard:graveyard_delete' item.pk %}" class="graveyard-delete-form" data-item-id="{{ item.pk }}" data-item-name="{{ item.name }}">
+                {% csrf_token %}
+                <button type="button" class="graveyard-delete-trigger text-xs text-blood-400/80 hover:text-blood-400 hover:underline cursor-pointer">
+                  Hapus Catatan
+                </button>
+              </form>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      {# Status Kosong (Empty State) #}
+      <div class="pn-card mt-4 flex flex-col items-center justify-center py-16 text-center border-crypt-700 bg-crypt-900">
+        <h3 class="font-display text-2xl font-semibold text-bone-50">
+          Graveyard Masih Kosong!
+        </h3>
+        <p class="mt-2 max-w-md text-sm text-bone-200 leading-relaxed">
+          {% if search_query or selected_category or selected_reason %}
+            Tidak ada bahan makanan yang sesuai dengan saringan saat ini.
+          {% else %}
+            Tidak ada bahan makanan yang terbuang. Seluruh bahan di dapurmu masih aman atau berhasil diselamatkan di Death Clock.
+          {% endif %}
+        </p>
+        <div class="mt-6 flex flex-wrap gap-3 justify-center">
+          {% if search_query or selected_category or selected_reason %}
+            <a href="{% url 'graveyard:graveyard_list' %}" class="pn-btn pn-btn--secondary text-sm">
+              Reset Saringan
+            </a>
+          {% else %}
+            <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--primary text-sm">
+              Buka Pantry Death Clock
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </section>
+
+  {# Grim Reaper Deletion Confirmation Modal (In-Page Gamey Popup) #}
+  <div id="reaper-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-crypt-950/85 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300" role="dialog" aria-modal="true" aria-labelledby="reaper-title" aria-describedby="reaper-desc">
+    <div id="reaper-modal-card" class="relative w-full max-w-md rounded-2xl border border-blood-500/50 bg-crypt-900 p-6 shadow-2xl shadow-blood-950/70 transform scale-95 transition-all duration-300 overflow-hidden">
+      {# Occult ethereal glow effect #}
+      <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-44 h-24 bg-blood-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+      {# Grim Reaper Silhouette with Scythe and Pulsing Crimson Eyes #}
+      <div class="relative mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-blood-500/40 bg-crypt-950 shadow-inner">
+        <svg class="h-10 w-10 text-blood-400" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Hood / Cloak -->
+          <path d="M24 6C16 6 12 12 12 20C12 27 16 34 18 42H30C32 34 36 27 36 20C36 12 32 6 24 6Z" fill="#140707" stroke="#F07A6E" stroke-width="2" stroke-linejoin="round"/>
+          <!-- Inner Face Shadow -->
+          <path d="M17 18C17 15 20 13 24 13C28 13 31 15 31 18C31 23 28 27 24 27C20 27 17 23 17 18Z" fill="#0A0303"/>
+          <!-- Crimson Glowing Eyes -->
+          <circle cx="21" cy="18" r="1.5" fill="#F07A6E" class="animate-ping" style="animation-duration: 2s;"/>
+          <circle cx="21" cy="18" r="1.5" fill="#F07A6E"/>
+          <circle cx="27" cy="18" r="1.5" fill="#F07A6E" class="animate-ping" style="animation-duration: 2s;"/>
+          <circle cx="27" cy="18" r="1.5" fill="#F07A6E"/>
+          <!-- Occult Scythe Blade -->
+          <path d="M32 10C36 7 42 8 44 12C41 12 37 14 35 17L33 13" stroke="#F07A6E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M33 13L39 42" stroke="#8E857C" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <div class="mt-4 text-center">
+        <span class="pn-badge pn-tone-blood text-[10px] uppercase tracking-wider font-semibold">
+          Ritual Pemusnahan Nisan
+        </span>
+        <h3 id="reaper-title" class="font-display text-xl sm:text-2xl font-semibold text-bone-50 mt-2">
+          Panggil Sang Maut?
+        </h3>
+        <p id="reaper-desc" class="text-sm text-bone-200 mt-2 leading-relaxed">
+          Apakah kamu yakin ingin melenyapkan catatan <strong id="reaper-item-name" class="font-display text-base text-blood-400 font-semibold underline decoration-blood-500/50">Bahan</strong> dari Graveyard?
+        </p>
+        <p class="text-xs text-bone-400 mt-2 italic bg-crypt-950/70 p-2.5 rounded-lg border border-crypt-800">
+          "Arwah bahan pangan ini akan dijemput Sang Maut dan sirna selamanya dari catatan batu nisan."
+        </p>
+      </div>
+
+      <div class="mt-6 flex items-center justify-center gap-3">
+        <button type="button" id="reaper-cancel-btn" class="pn-btn pn-btn--secondary flex-1 text-sm py-2.5 cursor-pointer">
+          Batalkan
+        </button>
+        <button type="button" id="reaper-confirm-btn" class="pn-btn pn-btn--primary flex-1 text-sm py-2.5 !bg-blood-500 hover:!bg-blood-600 !border-blood-600 cursor-pointer shadow-lg shadow-blood-950/60 flex items-center justify-center gap-2">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span id="reaper-confirm-text">Lenyapkan</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {# Toast Notification untuk Aksi Asinkronus (AJAX Delete & Updates) #}
+  <div id="graveyard-toast" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border border-blood-500/70 bg-crypt-950/95 text-sm text-bone-100 shadow-2xl backdrop-blur-md transition-all duration-300 translate-y-20 opacity-0 pointer-events-none" role="status" aria-live="polite">
+    <span class="h-2 w-2 rounded-full bg-blood-400 animate-pulse"></span>
+    <span id="graveyard-toast-message">Notifikasi</span>
+  </div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const container = document.getElementById('haunting-wrapped-container');
+    if (!container) return;
+
+    const slides = container.querySelectorAll('.wrapped-slide');
+    const bars = container.querySelectorAll('.wrapped-bar-fill');
+    const prevBtn = document.getElementById('wrapped-prev-btn');
+    const nextBtn = document.getElementById('wrapped-next-btn');
+    const pauseBtn = document.getElementById('wrapped-toggle-pause');
+    const pauseIcon = document.getElementById('wrapped-pause-icon');
+    const statusHint = document.getElementById('wrapped-status-hint');
+
+    if (!slides.length) return;
+
+    let currentIndex = 0;
+    const duration = 8000; // 8 detik per slide agar nyaman dibaca dan tidak tergesa-gesa
+    const intervalStep = 50; // update progress tiap 50ms
+    let elapsed = 0;
+
+    // Pisahkan state jeda manual (tombol) dan jeda interaksi (hover kursor / sentuhan)
+    let isManuallyPaused = false;
+    let isHovered = false;
+
+    function shouldRun() {
+      return !isManuallyPaused && !isHovered;
+    }
+
+    function renderSlide(index) {
+      slides.forEach((slide, i) => {
+        if (i === index) {
+          slide.classList.remove('opacity-0', 'pointer-events-none', 'invisible', 'z-0');
+          slide.classList.add('opacity-100', 'pointer-events-auto', 'visible', 'z-10');
+          slide.setAttribute('aria-hidden', 'false');
+        } else {
+          slide.classList.remove('opacity-100', 'pointer-events-auto', 'visible', 'z-10');
+          slide.classList.add('opacity-0', 'pointer-events-none', 'invisible', 'z-0');
+          slide.setAttribute('aria-hidden', 'true');
+        }
+      });
+
+      bars.forEach((bar, i) => {
+        if (i < index) {
+          bar.style.width = '100%';
+        } else if (i === index) {
+          // Akan diisi bertahap oleh tick()
+        } else {
+          bar.style.width = '0%';
+        }
+      });
+    }
+
+    function goToSlide(nextIndex) {
+      elapsed = 0;
+      currentIndex = (nextIndex + slides.length) % slides.length;
+      renderSlide(currentIndex);
+    }
+
+    function tick() {
+      if (shouldRun()) {
+        elapsed += intervalStep;
+        const progress = Math.min(100, (elapsed / duration) * 100);
+        if (bars[currentIndex]) {
+          bars[currentIndex].style.width = progress + '%';
+        }
+
+        if (elapsed >= duration) {
+          goToSlide(currentIndex + 1);
+        }
+      }
+    }
+
+    function updatePauseButtonUI() {
+      if (isManuallyPaused) {
+        pauseBtn.setAttribute('aria-pressed', 'true');
+        pauseBtn.classList.remove('border-crypt-700', 'bg-crypt-800/90', 'text-bone-200');
+        pauseBtn.classList.add('border-ember-500/80', 'bg-ember-950/80', 'text-ember-300');
+        if (pauseIcon) {
+          pauseIcon.innerHTML = `
+            <svg class="w-3.5 h-3.5 text-ember-300" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            <span id="wrapped-pause-text">Lanjut</span>
+          `;
+        }
+        if (statusHint) {
+          statusHint.textContent = 'Rotasi dijeda · Klik Lanjut untuk melanjutkan';
+        }
+      } else {
+        pauseBtn.setAttribute('aria-pressed', 'false');
+        pauseBtn.classList.remove('border-ember-500/80', 'bg-ember-950/80', 'text-ember-300');
+        pauseBtn.classList.add('border-crypt-700', 'bg-crypt-800/90', 'text-bone-200');
+        if (pauseIcon) {
+          pauseIcon.innerHTML = `
+            <svg class="w-3.5 h-3.5 text-bone-300" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z"/>
+            </svg>
+            <span id="wrapped-pause-text">Jeda</span>
+          `;
+        }
+        if (statusHint) {
+          statusHint.textContent = 'Ganti otomatis tiap 8 detik · Arahkan kursor atau klik Jeda';
+        }
+      }
+    }
+
+    // Mulai rotasi 8 detik
+    const timer = setInterval(tick, intervalStep);
+    renderSlide(0);
+
+    // Hover to pause: hanya memodifikasi status isHovered, TIDAK mereset isManuallyPaused
+    container.addEventListener('mouseenter', () => { isHovered = true; });
+    container.addEventListener('mouseleave', () => { isHovered = false; });
+
+    // Sentuhan perangkat mobile
+    container.addEventListener('touchstart', () => { isHovered = true; }, { passive: true });
+    container.addEventListener('touchend', () => { isHovered = false; }, { passive: true });
+
+    // Tombol Toggle Jeda / Lanjut
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        isManuallyPaused = !isManuallyPaused;
+        updatePauseButtonUI();
+      });
+    }
+
+    // Tombol Navigasi Manual
+    if (prevBtn) {
+      prevBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        goToSlide(currentIndex - 1);
+      });
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        goToSlide(currentIndex + 1);
+      });
+    }
+
+    // Dukungan Keyboard Panah Kiri / Kanan dan Spasi
+    container.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goToSlide(currentIndex - 1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goToSlide(currentIndex + 1);
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        isManuallyPaused = !isManuallyPaused;
+        updatePauseButtonUI();
+      }
+    });
+  });
+
+  // ==============================================================
+  // Ritual Pemusnahan Nisan: In-Page Grim Reaper Modal & Gamey Death Animation
+  // ==============================================================
+  document.addEventListener('DOMContentLoaded', function () {
+    const deleteTriggers = document.querySelectorAll('.graveyard-delete-trigger');
+    const reaperModal = document.getElementById('reaper-modal');
+    const reaperModalCard = document.getElementById('reaper-modal-card');
+    const reaperItemName = document.getElementById('reaper-item-name');
+    const reaperCancelBtn = document.getElementById('reaper-cancel-btn');
+    const reaperConfirmBtn = document.getElementById('reaper-confirm-btn');
+    const reaperConfirmText = document.getElementById('reaper-confirm-text');
+    const countBadge = document.getElementById('graveyard-items-count');
+    const toast = document.getElementById('graveyard-toast');
+    const toastMsg = document.getElementById('graveyard-toast-message');
+
+    let activeDeleteForm = null;
+    let activeItemId = null;
+    let activeItemName = '';
+    let toastTimeout = null;
+
+    function showToast(message) {
+      if (!toast || !toastMsg) return;
+      toastMsg.textContent = message;
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100', 'pointer-events-auto');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+        toast.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+      }, 4000);
+    }
+
+    function openReaperModal(form, itemId, itemName) {
+      activeDeleteForm = form;
+      activeItemId = itemId;
+      activeItemName = itemName;
+
+      if (reaperItemName) {
+        reaperItemName.textContent = itemName;
+      }
+
+      if (reaperConfirmBtn) {
+        reaperConfirmBtn.disabled = false;
+        if (reaperConfirmText) reaperConfirmText.textContent = 'Lenyapkan';
+      }
+
+      if (reaperModal) {
+        reaperModal.classList.remove('opacity-0', 'pointer-events-none');
+        reaperModal.classList.add('opacity-100', 'pointer-events-auto');
+      }
+      if (reaperModalCard) {
+        reaperModalCard.classList.remove('scale-95');
+        reaperModalCard.classList.add('scale-100');
+      }
+    }
+
+    function closeReaperModal() {
+      if (reaperModal) {
+        reaperModal.classList.add('opacity-0', 'pointer-events-none');
+        reaperModal.classList.remove('opacity-100', 'pointer-events-auto');
+      }
+      if (reaperModalCard) {
+        reaperModalCard.classList.add('scale-95');
+        reaperModalCard.classList.remove('scale-100');
+      }
+      activeDeleteForm = null;
+      activeItemId = null;
+      activeItemName = '';
+    }
+
+    // Pasang listener pada tombol Hapus di tiap baris / kartu
+    deleteTriggers.forEach(btn => {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const form = btn.closest('.graveyard-delete-form');
+        if (!form) return;
+
+        const itemId = form.getAttribute('data-item-id');
+        const itemName = form.getAttribute('data-item-name') || 'bahan pangan';
+        openReaperModal(form, itemId, itemName);
+      });
+    });
+
+    // Batalkan Modal
+    if (reaperCancelBtn) {
+      reaperCancelBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeReaperModal();
+      });
+    }
+
+    // Klik di area backdrop untuk menutup modal
+    if (reaperModal) {
+      reaperModal.addEventListener('click', (e) => {
+        if (e.target === reaperModal) {
+          closeReaperModal();
+        }
+      });
+    }
+
+    // Tombol Escape untuk menutup modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && reaperModal && !reaperModal.classList.contains('pointer-events-none')) {
+        closeReaperModal();
+      }
+    });
+
+    // Eksekusi Pemusnahan Nisan oleh Sang Maut (Gamey Death Animation)
+    if (reaperConfirmBtn) {
+      reaperConfirmBtn.addEventListener('click', async function (e) {
+        e.preventDefault();
+        if (!activeDeleteForm || !activeItemId) return;
+
+        const itemId = activeItemId;
+        const itemName = activeItemName;
+        const form = activeDeleteForm;
+
+        reaperConfirmBtn.disabled = true;
+        if (reaperConfirmText) {
+          reaperConfirmText.textContent = 'Melenyapkan...';
+        }
+
+        // 1. Picu animasi sabit Sang Maut pada baris desktop & kartu mobile
+        const row = document.getElementById(`graveyard-row-${itemId}`);
+        const card = document.getElementById(`graveyard-card-${itemId}`);
+
+        [row, card].forEach(el => {
+          if (el) {
+            el.classList.add('reaper-slashed');
+          }
+        });
+
+        // Tutup modal agar user dapat melihat animasi pemusnahan di halaman
+        setTimeout(() => {
+          closeReaperModal();
+        }, 180);
+
+        try {
+          const response = await fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+
+            // Tunggu hingga animasi kutukan selesai (650ms), lalu hapus dari DOM
+            setTimeout(() => {
+              [row, card].forEach(el => {
+                if (el) el.remove();
+              });
+
+              // Update hitungan batu nisan
+              if (countBadge) {
+                const currentText = countBadge.textContent.replace(/[()]/g, '').trim();
+                const currentCount = parseInt(currentText, 10);
+                if (!isNaN(currentCount)) {
+                  const newCount = Math.max(0, currentCount - 1);
+                  countBadge.textContent = `(${newCount})`;
+                }
+              }
+
+              showToast(`☠ Arwah "${itemName}" telah dijemput Sang Maut dan dilenyapkan.`);
+            }, 650);
+          } else {
+            // Fallback submit standar jika server error
+            form.submit();
+          }
+        } catch (err) {
+          console.error('Pemusnahan nisan via AJAX gagal, fallback:', err);
+          form.submit();
+        }
+      });
+    }
+  });
+</script>
+{% endblock scripts %}
