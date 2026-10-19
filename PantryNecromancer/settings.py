@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'preservation_grimoire',
     'death_clock',
+    'graveyard',
     'main',
 ]
 

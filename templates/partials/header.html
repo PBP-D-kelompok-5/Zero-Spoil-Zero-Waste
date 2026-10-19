@@ -10,7 +10,7 @@
       <a href="{% url 'death_clock:pantry_list' %}" class="pn-nav__link">Death Clock</a>
       <a href="{% url 'main:show_main' %}#recipe-alchemist" class="pn-nav__link">Alchemist</a>
       <a href="{% url 'main:show_main' %}#dead-drop" class="pn-nav__link">Dead Drop</a>
-      <a href="{% url 'main:show_main' %}#graveyard" class="pn-nav__link">Graveyard</a>
+      <a href="{% url 'graveyard:graveyard_list' %}" class="pn-nav__link">Graveyard</a>
       <a href="{% url 'main:show_main' %}#grimoire" class="pn-nav__link">Grimoire</a>
     </div>
 
@@ -38,7 +38,7 @@
     <a href="{% url 'death_clock:pantry_list' %}" class="pn-nav__link">Pantry Death Clock</a>
     <a href="{% url 'main:show_main' %}#recipe-alchemist" class="pn-nav__link">Recipe Alchemist</a>
     <a href="{% url 'main:show_main' %}#dead-drop" class="pn-nav__link">The Dead Drop</a>
-    <a href="{% url 'main:show_main' %}#graveyard" class="pn-nav__link">The Graveyard</a>
+    <a href="{% url 'graveyard:graveyard_list' %}" class="pn-nav__link">The Graveyard</a>
     <a href="{% url 'main:show_main' %}#grimoire" class="pn-nav__link">Preservation Grimoire</a>
     <hr class="my-2 border-crypt-700" />
     {% if user.is_authenticated %}

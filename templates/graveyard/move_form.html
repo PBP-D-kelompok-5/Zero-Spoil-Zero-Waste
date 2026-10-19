@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Kuburkan {{ pantry_item.name }} · The Graveyard{% endblock title %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'death_clock/death_clock.css' %}" />
+<style>
+  @keyframes skull-entrance {
+    0% {
+      transform: scale(0.5) translateY(25px);
+      opacity: 0;
+    }
+    60% {
+      transform: scale(1.08) translateY(-6px);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes skull-float {
+    0%, 100% {
+      transform: translateY(0px) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-8px) rotate(-1.5deg);
+    }
+  }
+
+  @keyframes skull-eyes-glow {
+    0%, 100% {
+      transform: scale(0.9);
+      opacity: 0.75;
+      filter: drop-shadow(0 0 3px #F07A6E);
+    }
+    50% {
+      transform: scale(1.3);
+      opacity: 1;
+      filter: drop-shadow(0 0 9px #F07A6E);
+    }
+  }
+
+  @keyframes wisp-rise {
+    0% {
+      opacity: 0;
+      transform: translateY(12px) scale(0.6);
+    }
+    40% {
+      opacity: 0.85;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-38px) scale(1.3);
+    }
+  }
+
+  .animate-skull-entrance {
+    animation: skull-entrance 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .animate-skull-float {
+    animation: skull-float 2.2s ease-in-out infinite alternate;
+  }
+
+  .animate-skull-eyes {
+    transform-origin: center;
+    animation: skull-eyes-glow 1.4s ease-in-out infinite;
+  }
+
+  .animate-wisp-1 {
+    animation: wisp-rise 1.6s ease-out infinite;
+  }
+  .animate-wisp-2 {
+    animation: wisp-rise 2s ease-out infinite 0.4s;
+  }
+  .animate-wisp-3 {
+    animation: wisp-rise 1.8s ease-out infinite 0.8s;
+  }
+</style>
+{% endblock extra_head %}
+
+{% block content %}
+<div class="pn-container py-12 md:py-16">
+  <div class="max-w-xl mx-auto">
+    <div class="mb-6 border-b border-crypt-700/80 pb-5">
+      <h1 class="pn-display text-2xl sm:text-3xl font-semibold text-bone-50">
+        Kuburkan {{ pantry_item.name }}
+      </h1>
+      <p class="text-sm text-bone-200 mt-2 leading-relaxed">
+        Bahan ini akan dihapus dari inventaris Death Clock dan dicatat ke dalam neraca analitik limbah Graveyard.
+      </p>
+    </div>
+
+    <form id="form-move-graveyard" method="post" action="{% url 'graveyard:move_from_death_clock' pantry_item.pk %}" class="pn-form pn-card border-crypt-700 bg-crypt-900 p-6">
+      {% csrf_token %}
+
+      <div class="mb-6 rounded-lg border border-crypt-700 bg-crypt-950 p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="font-semibold text-bone-50 text-base">{{ pantry_item.name }}</h2>
+            <p class="text-xs text-bone-400 mt-0.5">
+              Kategori: <span class="text-bone-200">{{ pantry_item.get_category_display }}</span> · Kuantitas: <span class="text-bone-200">{{ pantry_item.quantity }} {{ pantry_item.get_unit_display }}</span>
+            </p>
+          </div>
+          <span class="text-xs font-medium text-blood-400 tabular-nums">
+            Kedaluwarsa: {{ pantry_item.expiry_date|date:"d M Y" }}
+          </span>
+        </div>
+      </div>
+
+      <div class="pn-field">
+        <label for="reason" class="pn-label">Alasan Pembusukan atau Pembuangan</label>
+        <select id="reason" name="reason" class="pn-input" required>
+          {% for code, label in reasons %}
+            <option value="{{ code }}" {% if code == 'EXPIRED' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <p class="pn-help">Pilih alasan paling dominan mengapa bahan ini gagal dikonsumsi.</p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="pn-field">
+          <label for="estimated_loss" class="pn-label">Estimasi Kerugian (Rp)</label>
+          <input type="number" step="500" min="0" id="estimated_loss" name="estimated_loss" placeholder="Contoh: 15000" class="pn-input tabular-nums" />
+          <p class="pn-help">Perkiraan harga beli bahan ini.</p>
+        </div>
+
+        <div class="pn-field">
+          <label for="weight_g" class="pn-label">Estimasi Berat (Gram)</label>
+          <input type="number" step="10" min="0" id="weight_g" name="weight_g" placeholder="Contoh: 250" class="pn-input tabular-nums" />
+          <p class="pn-help">Kosongkan jika tidak tahu (akan diestimasi dari kuantitas).</p>
+        </div>
+      </div>
+
+      <div class="pn-field">
+        <label for="disposed_at" class="pn-label">Tanggal Dibuang</label>
+        <input type="date" id="disposed_at" name="disposed_at" value="{{ today }}" class="pn-input" required />
+      </div>
+
+      <div class="pn-field">
+        <label for="notes" class="pn-label">Catatan Tambahan (Opsional)</label>
+        <textarea id="notes" name="notes" rows="2" placeholder="Contoh: Mengendap di bagian belakang kulkas..." class="pn-input">{{ pantry_item.notes }}</textarea>
+      </div>
+
+      <div class="mt-6 flex items-center justify-end gap-3 pt-5 border-t border-crypt-700/80">
+        <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--ghost text-sm">
+          Batal
+        </a>
+        <button type="submit" id="btn-submit-bury" class="pn-btn pn-btn--danger text-sm flex items-center gap-2 group">
+          {# Ikon Tengkorak Kecil di Tombol #}
+          <svg class="w-4 h-4 text-crypt-950 transition-transform duration-200 group-hover:scale-125 group-hover:-rotate-12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2C7.58 2 4 5.58 4 10c0 2.21.9 4.21 2.35 5.65.34.34.65.77.65 1.35V19c0 .55.45 1 1 1h8c.55 0 1-.45 1-1v-2c0-.58.31-1.01.65-1.35C19.1 14.21 20 12.21 20 10c0-4.42-3.58-8-8-8zm-3 10c-.83 0-1.5-.67-1.5-1.5S8.17 9 9 9s1.5.67 1.5 1.5S9.83 12 9 12zm6 0c-.83 0-1.5-.67-1.5-1.5S14.17 9 15 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+          </svg>
+          <span>Konfirmasi Pemindahan ke Graveyard</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# Overlay Ritual Animasi Tengkorak #}
+<div id="graveyard-ritual-overlay" class="fixed inset-0 z-50 hidden flex-col items-center justify-center bg-crypt-950/92 backdrop-blur-md transition-opacity duration-300 opacity-0" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="flex flex-col items-center justify-center text-center p-6 max-w-sm mx-auto animate-skull-entrance">
+    
+    {# Visual Animasi Tengkorak & Partikel Arwah #}
+    <div class="relative flex items-center justify-center mb-5">
+      {# Partikel arwah mistis melayang #}
+      <div class="absolute -top-6 -left-6 w-3 h-3 rounded-full bg-blood-400/80 blur-[1px] animate-wisp-1" aria-hidden="true"></div>
+      <div class="absolute -top-10 right-2 w-2.5 h-2.5 rounded-full bg-ecto-300/60 blur-[1px] animate-wisp-2" aria-hidden="true"></div>
+      <div class="absolute -bottom-2 -right-5 w-3.5 h-3.5 rounded-full bg-blood-400/70 blur-[1px] animate-wisp-3" aria-hidden="true"></div>
+
+      {# Vektor Tengkorak Necromancer #}
+      <div class="animate-skull-float">
+        <svg class="h-32 w-32 filter drop-shadow-[0_0_30px_rgba(240,122,110,0.65)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {# Aura kabut kuburan #}
+          <circle cx="50" cy="50" r="42" fill="rgba(240, 122, 110, 0.12)" filter="blur(8px)"/>
+          
+          {# Batok Kepala & Kontur Tengkorak #}
+          <path d="M50 14 C31 14 19 28 19 46 C19 57 25 66 31 71 C32 73 34 76 34 80 C34 83 36 85 39 85 L61 85 C64 85 66 83 66 80 C66 76 68 73 69 71 C75 66 81 57 81 46 C81 28 69 14 50 14 Z" 
+                fill="#F3EFE4" stroke="#111814" stroke-width="2.5" stroke-linejoin="round"/>
+                
+          {# Bayangan lekuk tulang pipi #}
+          <path d="M21 48 C23 54 27 58 31 60 C28 55 27 50 27 45 Z" fill="#D6D0BF"/>
+          <path d="M79 48 C77 54 73 58 69 60 C72 55 73 50 73 45 Z" fill="#D6D0BF"/>
+
+          {# Rongga Mata Kiri & Kanan (Gelap Gulita) #}
+          <ellipse cx="36" cy="46" rx="9.5" ry="11.5" transform="rotate(-6 36 46)" fill="#111814"/>
+          <ellipse cx="64" cy="46" rx="9.5" ry="11.5" transform="rotate(6 64 46)" fill="#111814"/>
+
+          {# Bola Api Arwah / Pupil Merah Menyala (Berdip & Berdenyut) #}
+          <circle class="animate-skull-eyes" cx="36" cy="47" r="3.5" fill="#F07A6E"/>
+          <circle class="animate-skull-eyes" cx="64" cy="47" r="3.5" fill="#F07A6E"/>
+          <circle cx="36" cy="47" r="1.5" fill="#FFFFFF"/>
+          <circle cx="64" cy="47" r="1.5" fill="#FFFFFF"/>
+
+          {# Rongga Hidung Segitiga #}
+          <path d="M50 56 L46 65 C48 66 52 66 54 65 Z" fill="#111814"/>
+
+          {# Garis Gigi & Rahang #}
+          <path d="M37 74 L63 74" stroke="#111814" stroke-width="2" stroke-linecap="round"/>
+          <line x1="42" y1="71" x2="42" y2="77" stroke="#111814" stroke-width="1.8"/>
+          <line x1="47" y1="71" x2="47" y2="77" stroke="#111814" stroke-width="1.8"/>
+          <line x1="53" y1="71" x2="53" y2="77" stroke="#111814" stroke-width="1.8"/>
+          <line x1="58" y1="71" x2="58" y2="77" stroke="#111814" stroke-width="1.8"/>
+
+          {# Retakan Halus di Dahi #}
+          <path d="M48 20 L51 28 L49 32" stroke="#A8A290" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    {# Teks Ritual Suci Pemakaman #}
+    <h3 class="font-display text-2xl font-semibold text-bone-50 tracking-tight">
+      Menguburkan <span class="text-blood-400">{{ pantry_item.name }}</span>...
+    </h3>
+    <p class="font-display italic text-sm text-bone-200 mt-1">
+      "Resurrected no more. Istirahatlah dengan tenang di Graveyard."
+    </p>
+
+    <div class="mt-5 flex items-center justify-center gap-2 text-xs text-bone-400">
+      <span class="inline-block w-2 h-2 rounded-full bg-blood-400 animate-ping"></span>
+      <span>Mencatat kerugian & emisi karbon ke batu nisan...</span>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('form-move-graveyard');
+    const overlay = document.getElementById('graveyard-ritual-overlay');
+    const submitBtn = document.getElementById('btn-submit-bury');
+
+    if (form && overlay) {
+      form.addEventListener('submit', function (e) {
+        // Jika ada field wajib yang belum terisi, biarkan validasi bawaan browser bekerja
+        if (!form.checkValidity()) {
+          return;
+        }
+
+        // Cek preferensi aksesibilitas pengguna (prefers-reduced-motion)
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReducedMotion) {
+          return; // Kirim form langsung tanpa animasi jika reduced-motion aktif
+        }
+
+        e.preventDefault();
+
+        // Tampilkan overlay ritual pemakaman
+        overlay.classList.remove('hidden');
+        // Trigger reflow agar transisi opacity CSS berjalan mulus
+        void overlay.offsetWidth;
+        overlay.classList.remove('opacity-0');
+        overlay.classList.add('opacity-100');
+
+        // Nonaktifkan tombol untuk mencegah klik ganda
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
+        }
+
+        // Beri jeda 1.3 detik agar animasi tengkorak dan partikel arwah selesai dinikmati
+        setTimeout(function () {
+          form.submit();
+        }, 1300);
+      });
+    }
+  });
+</script>
+{% endblock scripts %}

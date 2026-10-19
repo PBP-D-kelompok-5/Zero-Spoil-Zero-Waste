@@ -53,6 +53,7 @@
     <div class="dc-card__links flex items-center gap-1">
       {% if not item.is_resurrected %}
         <a href="{% url 'death_clock:item_update' item.pk %}" class="pn-btn pn-btn--ghost pn-btn--sm" data-dc-modal="Ubah {{ item.name }}">Ubah</a>
+        <a href="{% url 'graveyard:move_from_death_clock' item.pk %}" class="pn-btn pn-btn--ghost pn-btn--sm text-blood-400" title="Bahan busuk/kedaluwarsa? Pindahkan ke Graveyard">Ke Graveyard</a>
       {% endif %}
       <form method="post" action="{% url 'death_clock:item_delete' item.pk %}" data-dc-action="delete">
         {% csrf_token %}
