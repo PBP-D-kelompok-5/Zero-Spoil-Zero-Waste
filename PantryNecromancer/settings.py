@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'preservation_grimoire',
     'death_clock',
     'graveyard',
+    'recipe_alchemist',
     'main',
 ]
 
@@ -161,3 +162,5 @@ LOGIN_URL = 'main:login'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+SPOONACULAR_API_KEY = os.getenv('SPOONACULAR_API_KEY')

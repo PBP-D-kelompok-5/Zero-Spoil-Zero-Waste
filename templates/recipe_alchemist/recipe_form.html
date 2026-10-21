@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} · Recipe Alchemist{% endblock title %}
+
+{% block content %}
+<section class="pn-container flex justify-center py-10 sm:py-14">
+  <div class="w-full max-w-xl">
+    <a href="{% url 'recipe_alchemist:my_recipes' %}" class="pn-link text-sm">← Kembali ke koleksi</a>
+    <h1 class="pn-heading mb-6 mt-4">{{ title }}</h1>
+    <form method="post" class="pn-form pn-card" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% for field in form %}
+        <div class="pn-field">
+          {% if field.field.widget.input_type == 'checkbox' %}
+            <label class="flex items-center gap-2 text-sm">{{ field }} {{ field.label }}</label>
+          {% else %}
+            <label class="pn-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+          {% endif %}
+          {% if field.help_text %}<p class="pn-help">{{ field.help_text }}</p>{% endif %}
+          {% for error in field.errors %}<p class="pn-error">{{ error }}</p>{% endfor %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="pn-btn pn-btn--primary pn-btn--block">Simpan</button>
+    </form>
+  </div>
+</section>
+{% endblock content %}
