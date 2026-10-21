@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from django.apps import apps
 from django.test import TestCase
 from django.urls import reverse
 
@@ -57,6 +60,12 @@ class ListViewTest(TestCase):
         self.assertNotContains(response, 'Punya orang lain')
         self.assertEqual(response.context['counts']['ACTIVE'], 3)
         self.assertContains(response, '1 bahan flatlining')
+
+    def test_cards_link_active_items_to_graveyard(self):
+        move_url = lambda item: reverse('graveyard:move_from_death_clock', args=[item.pk])
+        self.assertContains(self.client.get(url('pantry_list')), move_url(self.flat))
+        resurrected = self.client.get(f"{url('pantry_list')}?status=RESURRECTED")
+        self.assertNotContains(resurrected, move_url(self.saved))
 
     def test_filters(self):
         cases = {
@@ -224,3 +233,20 @@ class IntegrationTest(TestCase):
         response = self.client.get(reverse('main:show_main'))
         self.assertContains(response, f'href="{url("pantry_list")}"', count=3)
         self.assertContains(response, 'Buka Death Clock')
+
+
+class ModuleLayoutTest(TestCase):
+    """Template & static Death Clock hanya ada di templates/death_clock/ dan static/death_clock/ (folder utama).
+
+    Salinan di dalam folder app membuat lokal dan PWS memakai file berbeda: template diambil dari
+    folder utama, tetapi WhiteNoise di PWS menyajikan static dari folder app.
+    """
+
+    def test_no_templates_or_static_inside_app_folder(self):
+        app_dir = Path(apps.get_app_config('death_clock').path)
+        for folder in ('templates', 'static'):
+            with self.subTest(folder):
+                self.assertFalse(
+                    (app_dir / folder).exists(),
+                    f'Hapus death_clock/{folder}/; versi yang dipakai ada di {folder}/death_clock/.',
+                )
