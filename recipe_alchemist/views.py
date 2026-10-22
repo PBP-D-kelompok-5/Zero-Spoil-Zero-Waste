@@ -12,7 +12,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from death_clock.models import PantryItem
 from .forms import RecipeForm, SaveApiRecipeForm, SearchForm
 from .models import Recipe
-from .services import SpoonacularError, find_by_ingredients
+from .services import SpoonacularError, find_by_ingredients, to_english
 
 
 def is_ajax(request):
@@ -33,11 +33,39 @@ def login_required_ajax(view):
     return wrapper
 
 
+def local_matches(request, names, max_minutes, diet, limit=12):
+    """Resep milik sendiri + resep publik komunitas yang memakai bahan yang dicari."""
+    names = sorted({n.strip().lower() for n in names if n.strip()})
+    if not names:
+        return []
+
+    visible = Q(is_public=True)
+    if request.user.is_authenticated:
+        visible |= Q(user=request.user)
+
+    hit = Q()
+    for name in names:
+        hit |= Q(ingredients__icontains=name) | Q(ingredients__icontains=to_english(name))
+
+    queryset = Recipe.objects.filter(visible).filter(hit).select_related('user')
+    if diet:
+        queryset = queryset.filter(diet=diet)
+    if max_minutes:
+        queryset = queryset.filter(Q(cook_time_minutes__lte=max_minutes) | Q(cook_time_minutes__isnull=True))
+
+    recipes = list(queryset)
+    for recipe in recipes:
+        text = recipe.ingredients.lower()
+        recipe.matched = [n for n in names if n in text or to_english(n) in text]
+    recipes.sort(key=lambda r: (-len(r.matched), -r.updated_at.timestamp()))
+    return recipes[:limit]
+
+
 # ---------- Cari (Spoonacular) ----------
 @require_GET
 def recipe_list(request):
     form = SearchForm(request.GET or None)
-    results, error, searched = [], None, False
+    results, local_results, error, searched = [], [], None, False
 
     if request.GET and form.is_valid():
         names = form.cleaned_data['ingredients'].split(',')
@@ -45,15 +73,18 @@ def recipe_list(request):
             names += list(
                 PantryItem.objects.filter(user=request.user).active().values_list('name', flat=True)
             )
+        max_minutes = form.cleaned_data['max_minutes']
+        diet = form.cleaned_data['diet']
         searched = True
+
+        local_results = local_matches(request, names, max_minutes, diet)
         try:
-            results = find_by_ingredients(
-                names,
-                max_minutes=form.cleaned_data['max_minutes'],
-                diet=form.cleaned_data['diet'],
-            )
+            results = find_by_ingredients(names, max_minutes=max_minutes, diet=diet)
         except SpoonacularError as exc:
             error = str(exc)
+
+        api_ids = {r['id'] for r in results}
+        local_results = [r for r in local_results if r.spoonacular_id not in api_ids]
 
     saved_ids = set()
     if request.user.is_authenticated:
@@ -63,7 +94,8 @@ def recipe_list(request):
         )
 
     return render(request, 'recipe_alchemist/recipe_list.html', {
-        'form': form, 'results': results, 'error': error, 'searched': searched, 'saved_ids': saved_ids,
+        'form': form, 'results': results, 'local_results': local_results,
+        'error': error, 'searched': searched, 'saved_ids': saved_ids,
     })
 
 

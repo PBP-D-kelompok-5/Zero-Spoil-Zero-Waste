@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+SPOONACULAR_API_KEY = os.getenv('SPOONACULAR_API_KEY')
+
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -162,5 +164,3 @@ LOGIN_URL = 'main:login'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-SPOONACULAR_API_KEY = os.getenv('SPOONACULAR_API_KEY')

@@ -13,19 +13,64 @@
 
   {% include 'recipe_alchemist/partials/tabs.html' with active='search' %}
 
-  {# ...the <form class="pn-form pn-card ..."> search form from before stays exactly the same... #}
+    <form method="get" class="pn-form pn-card mt-8 grid grid-cols-2 items-end gap-3 sm:gap-4 lg:grid-cols-[2fr_1fr_1fr_auto]" role="search">
+    <div class="pn-field col-span-2 lg:col-span-1">
+      <label class="pn-label" for="{{ form.ingredients.id_for_label }}">{{ form.ingredients.label }}</label>
+      {{ form.ingredients }}
+    </div>
+    <div class="pn-field">
+      <label class="pn-label" for="{{ form.max_minutes.id_for_label }}">{{ form.max_minutes.label }}</label>
+      {{ form.max_minutes }}
+    </div>
+    <div class="pn-field">
+      <label class="pn-label" for="{{ form.diet.id_for_label }}">{{ form.diet.label }}</label>
+      {{ form.diet }}
+    </div>
+    <button class="pn-btn pn-btn--primary col-span-2 lg:col-span-1" type="submit">Cari resep</button>
+
+    {% if user.is_authenticated %}
+    <label class="col-span-2 flex items-center gap-2 text-sm lg:col-span-4">
+      {{ form.use_pantry }} {{ form.use_pantry.label }}
+    </label>
+    {% endif %}
+  </form>
 
   <section class="mt-8" aria-live="polite">
+    {% if local_results %}
+      <h2 class="pn-heading mb-4">Dari koleksi &amp; komunitas</h2>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {% for recipe in local_results %}
+          <a href="{% url 'recipe_alchemist:recipe_detail' recipe.pk %}" class="pn-card pn-card--accent pn-tone-ecto flex flex-col gap-2 hover:border-bone-400">
+            <h3 class="font-display text-lg font-semibold">{{ recipe.title }}</h3>
+            <p class="text-xs pn-muted">
+              {% if recipe.cook_time_minutes %}{{ recipe.cook_time_minutes }} menit · {% endif %}{{ recipe.ingredient_list|length }} bahan
+            </p>
+            <p class="text-xs pn-muted">Cocok: {{ recipe.matched|join:", " }}</p>
+            <div class="mt-1 flex flex-wrap gap-2">
+              {% if recipe.user_id == user.id %}
+                <span class="pn-badge pn-tone-hex">Resepmu</span>
+              {% else %}
+                <span class="pn-badge pn-tone-ecto">Komunitas · {{ recipe.user.username }}</span>
+              {% endif %}
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     {% if error %}
-      <p class="pn-card">{{ error }}</p>
-    {% elif searched and not results %}
-      <p class="pn-card pn-muted">Tidak ada resep yang cocok. Coba longgarkan filter atau tambah bahan.</p>
+      <p class="pn-card mt-8">{{ error }}</p>
     {% elif results %}
+      <h2 class="pn-heading mb-4 {% if local_results %}mt-10{% endif %}">Dari Spoonacular</h2>
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {% for r in results %}
           <article class="pn-card flex flex-col gap-3">
-            {% if r.image %}<img src="{{ r.image }}" alt="{{ r.title }}" class="rounded-lg" loading="lazy" />{% endif %}
-            <h2 class="font-display text-lg font-semibold">{{ r.title }}</h2>
+            {% if r.image %}
+              <img src="{{ r.image }}" alt="{{ r.title }}" class="aspect-[312/231] w-full rounded-lg object-cover" loading="lazy" />
+            {% else %}
+              <div class="grid aspect-[312/231] w-full place-items-center rounded-lg bg-crypt-800 text-2xl" aria-hidden="true">🍳</div>
+            {% endif %}
+            <h3 class="font-display text-lg font-semibold">{{ r.title }}</h3>
             <p class="text-xs pn-muted">
               {{ r.used|length }} bahan terpakai · {{ r.missed|length }} kurang
               {% if r.minutes %}· {{ r.minutes }} menit{% endif %}
@@ -53,6 +98,10 @@
           </article>
         {% endfor %}
       </div>
+    {% endif %}
+
+    {% if searched and not results and not local_results and not error %}
+      <p class="pn-card pn-muted">Tidak ada resep yang cocok. Coba longgarkan filter atau tambah bahan.</p>
     {% endif %}
   </section>
 </div>

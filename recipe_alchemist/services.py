@@ -1,5 +1,9 @@
+import hashlib
+import json
+
 import requests
 from django.conf import settings
+from django.core.cache import cache
 
 BASE_URL = 'https://api.spoonacular.com'
 
@@ -14,6 +18,8 @@ ID_TO_EN = {
     'mentega': 'butter', 'santan': 'coconut milk',
 }
 
+CACHE_SECONDS = 60 * 60 * 6  # 6 jam
+
 
 def to_english(name):
     name = name.strip().lower()
@@ -27,16 +33,35 @@ class SpoonacularError(Exception):
 def _get(path, params):
     if not settings.SPOONACULAR_API_KEY:
         raise SpoonacularError('API key Spoonacular belum diatur.')
+
+    # Pencarian yang sama dalam 6 jam tidak memakai kuota lagi.
+    key = 'spoon:' + hashlib.md5(f'{path}{json.dumps(params, sort_keys=True)}'.encode()).hexdigest()
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
     try:
         response = requests.get(
             f'{BASE_URL}{path}',
             params={**params, 'apiKey': settings.SPOONACULAR_API_KEY},
-            timeout=8,
+            timeout=15,
         )
         response.raise_for_status()
+    except requests.HTTPError as exc:
+        code = exc.response.status_code
+        if code == 402:
+            raise SpoonacularError('Kuota harian Spoonacular habis. Coba lagi besok.') from exc
+        if code in (401, 403):
+            raise SpoonacularError('API key Spoonacular ditolak.') from exc
+        raise SpoonacularError(f'Spoonacular mengembalikan galat {code}.') from exc
+    except requests.Timeout as exc:
+        raise SpoonacularError('Spoonacular terlalu lama merespons.') from exc
     except requests.RequestException as exc:
         raise SpoonacularError('Spoonacular tidak dapat dihubungi.') from exc
-    return response.json()
+
+    data = response.json()
+    cache.set(key, data, CACHE_SECONDS)  # galat tidak disimpan di cache
+    return data
 
 
 def find_by_ingredients(ingredients, *, max_minutes=None, diet='', number=12):
@@ -46,8 +71,8 @@ def find_by_ingredients(ingredients, *, max_minutes=None, diet='', number=12):
 
     found = _get('/recipes/findByIngredients', {
         'ingredients': names,
-        'number': 24,          # fetch extra, since local filters drop some
-        'ranking': 2,          # minimize missing ingredients
+        'number': 12,          # ambil sedikit lebih banyak, karena filter lokal membuang sebagian
+        'ranking': 2,          # minimalkan bahan yang kurang
         'ignorePantry': 'true',
     })
     if not found:
