@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} · The Graveyard{% endblock title %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'death_clock/death_clock.css' %}" />
+{% endblock extra_head %}
+
+{% block content %}
+<section class="pn-container flex justify-center py-10 sm:py-14">
+  <div class="w-full max-w-xl">
+    <div class="mb-6 flex items-center justify-between">
+      <a href="{% url 'graveyard:graveyard_list' %}" class="pn-link text-sm inline-flex items-center gap-1">
+        <span>← Kembali ke Graveyard</span>
+      </a>
+      <span class="pn-badge pn-tone-blood text-xs">Modul · The Graveyard</span>
+    </div>
+
+    <div class="mb-4">
+      <h1 class="pn-display text-2xl sm:text-3xl font-semibold text-bone-50">{{ title }}</h1>
+      <p class="text-xs text-bone-300 mt-1">
+        {% if item %}
+          Perbarui rincian catatan nisan untuk koreksi kerugian finansial atau alasan pembuangan.
+        {% else %}
+          Catat bahan makanan yang terbuang secara langsung ke dalam neraca analitik Graveyard.
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="pn-card border-crypt-700 bg-crypt-900 p-6 shadow-xl">
+      <form method="post" class="pn-form space-y-4" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="pn-alert pn-tone-blood mb-4 p-3 rounded border border-blood-500/50 bg-blood-950/40 text-xs text-blood-300" role="alert">
+            {% for error in form.non_field_errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {# Nama Bahan #}
+        {% include 'partials/form_field.html' with field=form.name %}
+
+        {# Kategori & Alasan #}
+        <div class="grid gap-x-4 sm:grid-cols-2">
+          {% include 'partials/form_field.html' with field=form.category %}
+          {% include 'partials/form_field.html' with field=form.reason %}
+        </div>
+
+        {# Kuantitas & Satuan #}
+        <div class="grid grid-cols-2 gap-x-4">
+          {% include 'partials/form_field.html' with field=form.quantity %}
+          {% include 'partials/form_field.html' with field=form.unit %}
+        </div>
+
+        {# Estimasi Kerugian & Berat #}
+        <div class="grid gap-x-4 sm:grid-cols-2">
+          {% include 'partials/form_field.html' with field=form.estimated_loss %}
+          {% include 'partials/form_field.html' with field=form.weight_g %}
+        </div>
+
+        {# Tanggal Dibuang & Kedaluwarsa #}
+        <div class="grid gap-x-4 sm:grid-cols-2">
+          {% include 'partials/form_field.html' with field=form.disposed_at %}
+          {% include 'partials/form_field.html' with field=form.expiry_date %}
+        </div>
+
+        {# Catatan Tambahan #}
+        {% include 'partials/form_field.html' with field=form.notes %}
+
+        {# Tombol Aksi #}
+        <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-4 border-t border-crypt-700/80">
+          <a href="{% url 'graveyard:graveyard_list' %}" class="pn-btn pn-btn--ghost text-sm">
+            Batal
+          </a>
+          <button type="submit" class="pn-btn pn-btn--primary text-sm">
+            {{ submit_label|default:"Simpan" }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock content %}
