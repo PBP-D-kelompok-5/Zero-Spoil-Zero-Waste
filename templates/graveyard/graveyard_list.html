@@ -54,6 +54,7 @@
     </div>
     <div class="flex flex-wrap gap-2 md:justify-end">
       <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--secondary">← Kembali ke Death Clock</a>
+      <a href="{% url 'graveyard:graveyard_create' %}" class="pn-btn pn-btn--primary text-sm">+ Catat Limbah Baru</a>
       <a href="{% url 'graveyard:graveyard_json' %}" target="_blank" class="pn-btn pn-btn--secondary">Ekspor Data (JSON)</a>
     </div>
   </header>
@@ -215,7 +216,7 @@
   {% endif %}
 
   {# 3. Filter Bar: Selaras dengan styling dc-filter death_clock (container, tombol Terapkan, dan teks Reset) #}
-  <form method="get" action="{% url 'graveyard:graveyard_list' %}" class="pn-form pn-card dc-filter mt-6 grid grid-cols-2 items-end gap-3 sm:gap-4 lg:grid-cols-[1.8fr_1.2fr_1.2fr_auto]" role="search">
+  <form id="graveyard-filter-form" method="get" action="{% url 'graveyard:graveyard_list' %}" class="pn-form pn-card dc-filter mt-6 grid grid-cols-2 items-end gap-3 sm:gap-4 lg:grid-cols-[1.8fr_1.2fr_1.2fr_auto]" role="search">
     <div class="pn-field col-span-2 lg:col-span-1">
       <label class="pn-label" for="q">Cari</label>
       <input type="text" id="q" name="q" value="{{ search_query }}" placeholder="Nama bahan makanan atau catatan..." class="pn-input" />
@@ -243,7 +244,7 @@
 
     <div class="col-span-2 flex gap-2 sm:col-span-1 lg:col-span-1">
       <button class="pn-btn pn-btn--primary flex-1 lg:flex-none" type="submit">Terapkan</button>
-      <a href="{% url 'graveyard:graveyard_list' %}" class="pn-btn pn-btn--ghost">Reset</a>
+      <a id="graveyard-filter-reset" href="{% url 'graveyard:graveyard_list' %}" class="pn-btn pn-btn--ghost">Reset</a>
     </div>
   </form>
 
@@ -259,152 +260,9 @@
       {% endif %}
     </div>
 
-    {% if items %}
-      {# Tabel Desktop Berdensitas Tinggi & Khidmat #}
-      <div class="hidden lg:block mt-4 overflow-x-auto rounded-xl border border-crypt-700 bg-crypt-900">
-        <table class="w-full text-left text-sm text-bone-200">
-          <thead class="border-b border-crypt-700 bg-crypt-950/70 text-xs font-semibold uppercase tracking-wider text-bone-400">
-            <tr>
-              <th scope="col" class="py-3.5 px-4">Bahan Makanan & Catatan</th>
-              <th scope="col" class="py-3.5 px-4">Kategori</th>
-              <th scope="col" class="py-3.5 px-4">Alasan Pembuangan</th>
-              <th scope="col" class="py-3.5 px-4">Waktu Dibuang</th>
-              <th scope="col" class="py-3.5 px-4 text-right">Kuantitas</th>
-              <th scope="col" class="py-3.5 px-4 text-right">Kerugian</th>
-              <th scope="col" class="py-3.5 px-4 text-right">Emisi CO₂</th>
-              <th scope="col" class="py-3.5 px-4 text-center">Tindakan</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-crypt-700/60">
-            {% for item in items %}
-              <tr id="graveyard-row-{{ item.pk }}" class="transition-all duration-300 hover:bg-crypt-800/40">
-                <td class="py-4 px-4 font-medium text-bone-50">
-                  <div class="font-semibold text-base">{{ item.name }}</div>
-                  {% if item.notes %}
-                    <div class="mt-0.5 text-xs text-bone-400 italic">"{{ item.notes }}"</div>
-                  {% endif %}
-                </td>
-                <td class="py-4 px-4 whitespace-nowrap text-xs">
-                  <span class="pn-badge pn-tone-blood text-xs">
-                    {{ item.get_category_display }}
-                  </span>
-                </td>
-                <td class="py-4 px-4 text-xs text-bone-200">
-                  <span class="text-ember-400 font-medium">{{ item.get_reason_display }}</span>
-                </td>
-                <td class="py-4 px-4 whitespace-nowrap text-xs text-bone-400">
-                  <div>Dibuang: <span class="text-bone-200">{{ item.disposed_at|date:"d M Y" }}</span></div>
-                  {% if item.expiry_date %}
-                    <div class="text-[11px] text-bone-400">Kedaluwarsa: {{ item.expiry_date|date:"d M Y" }}</div>
-                  {% endif %}
-                </td>
-                <td class="py-4 px-4 whitespace-nowrap text-right font-medium tabular-nums text-bone-200">
-                  {{ item.quantity }} {{ item.get_unit_display }}
-                  {% if item.weight_g > 0 %}
-                    <div class="text-[11px] text-bone-400 font-normal">({{ item.weight_g|floatformat:0 }} g)</div>
-                  {% endif %}
-                </td>
-                <td class="py-4 px-4 whitespace-nowrap text-right font-semibold tabular-nums text-blood-400">
-                  {{ item.estimated_loss|rupiah }}
-                </td>
-                <td class="py-4 px-4 whitespace-nowrap text-right text-xs tabular-nums text-frost-400">
-                  ~{{ item.estimated_carbon_kg }} kg
-                </td>
-                <td class="py-4 px-4 whitespace-nowrap text-center">
-                  <form method="post" action="{% url 'graveyard:graveyard_delete' item.pk %}" class="graveyard-delete-form" data-item-id="{{ item.pk }}" data-item-name="{{ item.name }}">
-                    {% csrf_token %}
-                    <button type="button" class="graveyard-delete-trigger text-xs text-blood-400/80 hover:text-blood-400 hover:underline cursor-pointer flex items-center justify-center gap-1 mx-auto" title="Cabut nisan {{ item.name }}">
-                      <span>Hapus</span>
-                    </button>
-                  </form>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      {# Tampilan Mobile & Tablet: Kartu Memorial Ringkas #}
-      <div class="lg:hidden mt-4 grid gap-3 sm:grid-cols-2">
-        {% for item in items %}
-          <article id="graveyard-card-{{ item.pk }}" class="pn-card pn-card--accent pn-tone-blood flex flex-col justify-between p-4 transition-all duration-300 hover:border-blood-400/50">
-            <div>
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <h3 class="font-display text-lg font-semibold text-bone-50 truncate" title="{{ item.name }}">
-                    {{ item.name }}
-                  </h3>
-                  <div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                    <span class="pn-badge pn-tone-blood text-xs">
-                      {{ item.get_category_display }}
-                    </span>
-                    <span class="text-bone-400">
-                      {{ item.quantity }} {{ item.get_unit_display }}
-                    </span>
-                  </div>
-                </div>
-                <div class="text-right shrink-0">
-                  <span class="font-semibold text-blood-400 tabular-nums">
-                    {{ item.estimated_loss|rupiah }}
-                  </span>
-                </div>
-              </div>
-
-              <div class="mt-3 rounded border border-crypt-700/60 bg-crypt-950 p-2.5 text-xs">
-                <p class="text-ember-400 font-medium">{{ item.get_reason_display }}</p>
-                {% if item.notes %}
-                  <p class="mt-1 text-bone-400 italic">"{{ item.notes }}"</p>
-                {% endif %}
-              </div>
-
-              <div class="mt-3 flex items-center justify-between text-xs text-bone-400">
-                <span>Dibuang: <strong class="text-bone-200">{{ item.disposed_at|date:"d M Y" }}</strong></span>
-                {% if item.expiry_date %}
-                  <span>Expired: {{ item.expiry_date|date:"d M Y" }}</span>
-                {% endif %}
-              </div>
-            </div>
-
-            <div class="mt-4 pt-3 border-t border-crypt-700/60 flex items-center justify-between">
-              <span class="text-xs text-frost-400 tabular-nums" title="Estimasi jejak emisi karbon limbah">
-                ~{{ item.estimated_carbon_kg }} kg CO₂e
-              </span>
-              <form method="post" action="{% url 'graveyard:graveyard_delete' item.pk %}" class="graveyard-delete-form" data-item-id="{{ item.pk }}" data-item-name="{{ item.name }}">
-                {% csrf_token %}
-                <button type="button" class="graveyard-delete-trigger text-xs text-blood-400/80 hover:text-blood-400 hover:underline cursor-pointer">
-                  Hapus Catatan
-                </button>
-              </form>
-            </div>
-          </article>
-        {% endfor %}
-      </div>
-    {% else %}
-      {# Status Kosong (Empty State) #}
-      <div class="pn-card mt-4 flex flex-col items-center justify-center py-16 text-center border-crypt-700 bg-crypt-900">
-        <h3 class="font-display text-2xl font-semibold text-bone-50">
-          Graveyard Masih Kosong!
-        </h3>
-        <p class="mt-2 max-w-md text-sm text-bone-200 leading-relaxed">
-          {% if search_query or selected_category or selected_reason %}
-            Tidak ada bahan makanan yang sesuai dengan saringan saat ini.
-          {% else %}
-            Tidak ada bahan makanan yang terbuang. Seluruh bahan di dapurmu masih aman atau berhasil diselamatkan di Death Clock.
-          {% endif %}
-        </p>
-        <div class="mt-6 flex flex-wrap gap-3 justify-center">
-          {% if search_query or selected_category or selected_reason %}
-            <a href="{% url 'graveyard:graveyard_list' %}" class="pn-btn pn-btn--secondary text-sm">
-              Reset Saringan
-            </a>
-          {% else %}
-            <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--primary text-sm">
-              Buka Pantry Death Clock
-            </a>
-          {% endif %}
-        </div>
-      </div>
-    {% endif %}
+    <div id="graveyard-items-container" class="transition-opacity duration-200" aria-live="polite">
+      {% include 'graveyard/partials/item_list.html' %}
+    </div>
   </section>
 
   {# Grim Reaper Deletion Confirmation Modal (In-Page Gamey Popup) #}
@@ -630,10 +488,136 @@
   });
 
   // ==============================================================
+  // Live Search & Instant Filter (Debounced, Asynchronous, Tanpa Reload)
+  // ==============================================================
+  document.addEventListener('DOMContentLoaded', function () {
+    const filterForm = document.getElementById('graveyard-filter-form');
+    const itemsContainer = document.getElementById('graveyard-items-container');
+    const countBadge = document.getElementById('graveyard-items-count');
+    const searchInput = document.getElementById('q');
+    const categorySelect = document.getElementById('category');
+    const reasonSelect = document.getElementById('reason');
+    const resetBtn = document.getElementById('graveyard-filter-reset');
+
+    if (!filterForm || !itemsContainer) return;
+
+    let searchTimer = null;
+    let abortController = null;
+
+    async function applyFilterAsync() {
+      const formData = new FormData(filterForm);
+      const params = new URLSearchParams();
+      formData.forEach((value, key) => {
+        const trimmed = String(value).trim();
+        if (trimmed) params.append(key, trimmed);
+      });
+
+      const queryString = params.toString() ? '?' + params.toString() : '';
+      const targetUrl = filterForm.action + queryString;
+
+      // Batalkan request sebelumnya jika user mengetik lagi dengan cepat
+      if (abortController) {
+        abortController.abort();
+      }
+      abortController = new AbortController();
+
+      // Visual feedback loading (indikator interaktif)
+      itemsContainer.classList.add('opacity-40');
+      itemsContainer.setAttribute('aria-busy', 'true');
+
+      try {
+        const response = await fetch(targetUrl, {
+          method: 'GET',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+          },
+          signal: abortController.signal,
+          credentials: 'same-origin',
+        });
+
+        if (response.status === 401) {
+          const data = await response.json().catch(() => ({}));
+          window.location.href = `${data.login_url || '/login/'}?next=${encodeURIComponent(location.pathname)}`;
+          return;
+        }
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.html) {
+            itemsContainer.innerHTML = data.html;
+          }
+          if (countBadge && typeof data.count !== 'undefined') {
+            countBadge.textContent = `(${data.count})`;
+          }
+          // Perbarui URL browser tanpa memicu refresh halaman
+          history.replaceState(null, '', location.pathname + queryString);
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Filter Graveyard via AJAX gagal:', err);
+        }
+      } finally {
+        itemsContainer.classList.remove('opacity-40');
+        itemsContainer.removeAttribute('aria-busy');
+      }
+    }
+
+    // 1. Debounce 300ms saat mengetik di kolom pencarian nama bahan / catatan
+    if (searchInput) {
+      searchInput.addEventListener('input', function () {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(applyFilterAsync, 300);
+      });
+    }
+
+    // 2. Otomatis filter seketika saat dropdown kategori atau alasan berubah
+    [categorySelect, reasonSelect].forEach(select => {
+      if (select) {
+        select.addEventListener('change', function () {
+          clearTimeout(searchTimer);
+          applyFilterAsync();
+        });
+      }
+    });
+
+    // 3. Submit form (Enter atau tombol Terapkan) diproses via AJAX tanpa reload
+    filterForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      clearTimeout(searchTimer);
+      applyFilterAsync();
+    });
+
+    // 4. Tombol Reset membersihkan form dan me-refresh data via AJAX
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (searchInput) searchInput.value = '';
+        if (categorySelect) categorySelect.value = '';
+        if (reasonSelect) reasonSelect.value = '';
+        clearTimeout(searchTimer);
+        applyFilterAsync();
+      });
+    }
+
+    // Delegasi klik untuk tombol "Reset Saringan" pada empty state
+    itemsContainer.addEventListener('click', function (e) {
+      const resetLink = e.target.closest('a[data-action="reset-filter"]');
+      if (resetLink) {
+        e.preventDefault();
+        if (searchInput) searchInput.value = '';
+        if (categorySelect) categorySelect.value = '';
+        if (reasonSelect) reasonSelect.value = '';
+        clearTimeout(searchTimer);
+        applyFilterAsync();
+      }
+    });
+  });
+
+  // ==============================================================
   // Ritual Pemusnahan Nisan: In-Page Grim Reaper Modal & Gamey Death Animation
   // ==============================================================
   document.addEventListener('DOMContentLoaded', function () {
-    const deleteTriggers = document.querySelectorAll('.graveyard-delete-trigger');
     const reaperModal = document.getElementById('reaper-modal');
     const reaperModalCard = document.getElementById('reaper-modal-card');
     const reaperItemName = document.getElementById('reaper-item-name');
@@ -699,18 +683,19 @@
       activeItemName = '';
     }
 
-    // Pasang listener pada tombol Hapus di tiap baris / kartu
-    deleteTriggers.forEach(btn => {
-      btn.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const form = btn.closest('.graveyard-delete-form');
-        if (!form) return;
+    // Event Delegation: Menangani klik tombol Hapus pada elemen statis maupun hasil live-search AJAX
+    document.addEventListener('click', function (e) {
+      const trigger = e.target.closest('.graveyard-delete-trigger');
+      if (!trigger) return;
 
-        const itemId = form.getAttribute('data-item-id');
-        const itemName = form.getAttribute('data-item-name') || 'bahan pangan';
-        openReaperModal(form, itemId, itemName);
-      });
+      e.preventDefault();
+      e.stopPropagation();
+      const form = trigger.closest('.graveyard-delete-form');
+      if (!form) return;
+
+      const itemId = form.getAttribute('data-item-id');
+      const itemName = form.getAttribute('data-item-name') || 'bahan pangan';
+      openReaperModal(form, itemId, itemName);
     });
 
     // Batalkan Modal

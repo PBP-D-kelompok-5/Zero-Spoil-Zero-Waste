@@ -4,8 +4,10 @@ Menyediakan:
 1. graveyard_list: Daftar bahan makanan yang terbuang beserta ringkasan analitik
    (total item bulan ini, kategori paling sering terbuang, total kerugian uang, dan emisi CO₂).
 2. graveyard_json: Web service format JSON untuk analitik dan daftar item.
-3. move_from_death_clock: Memindahkan item dari inventaris Death Clock ke Graveyard ketika kedaluwarsa.
-4. graveyard_delete: Menghapus catatan pembuangan jika terjadi kesalahan input.
+3. graveyard_create: Menambahkan catatan bahan makanan terbuang secara langsung (Create).
+4. move_from_death_clock: Memindahkan item dari inventaris Death Clock ke Graveyard ketika kedaluwarsa.
+5. graveyard_edit: Memperbarui data catatan nisan limbah (Update).
+6. graveyard_delete: Menghapus catatan pembuangan jika terjadi kesalahan input (Delete).
 """
 from decimal import Decimal
 
@@ -13,12 +15,13 @@ from django.contrib import messages
 from django.db.models import Count, Q, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from death_clock.models import PantryItem
-from graveyard.forms import BuryForm
+from graveyard.forms import BuryForm, GraveyardItemForm
 from graveyard.models import Category, DisposalReason, GraveyardItem
 from graveyard.wrapped import generate_haunting_wrapped
 from main.auth import guest_page, is_ajax, login_required_ajax, safe_next_url
@@ -126,16 +129,6 @@ def graveyard_list(request):
     analytics = calculate_analytics(all_user_items)
     wrapped_slides = generate_haunting_wrapped(all_user_items, analytics)
 
-    # Jika meminta format JSON atau AJAX
-    if is_ajax(request):
-        return JsonResponse({
-            'ok': True,
-            'count': user_items.count(),
-            'analytics': analytics,
-            'wrapped': wrapped_slides,
-            'items': [item.to_dict() for item in user_items],
-        })
-
     context = {
         'items': user_items,
         'analytics': analytics,
@@ -146,6 +139,19 @@ def graveyard_list(request):
         'selected_reason': reason_filter,
         'search_query': query,
     }
+
+    # Jika meminta format JSON atau AJAX
+    if is_ajax(request):
+        html = render_to_string('graveyard/partials/item_list.html', context, request=request)
+        return JsonResponse({
+            'ok': True,
+            'count': user_items.count(),
+            'html': html,
+            'analytics': analytics,
+            'wrapped': wrapped_slides,
+            'items': [item.to_dict() for item in user_items],
+        })
+
     return render(request, 'graveyard/graveyard_list.html', context)
 
 
@@ -162,6 +168,86 @@ def graveyard_json(request):
         'analytics': analytics,
         'wrapped': wrapped_slides,
         'items': [item.to_dict() for item in user_items],
+    })
+
+
+@require_http_methods(['GET', 'POST'])
+@login_required_ajax
+def graveyard_create(request):
+    """Endpoint Create: Menambahkan catatan bahan makanan terbuang secara langsung."""
+    if request.method == 'POST':
+        form = GraveyardItemForm(request.POST)
+        if form.is_valid():
+            item = form.save(commit=False)
+            item.user = request.user
+            item.save()
+
+            message = f'Catatan limbah "{item.name}" berhasil ditambahkan ke Graveyard.'
+            if is_ajax(request):
+                return JsonResponse({
+                    'ok': True,
+                    'message': message,
+                    'graveyard_item': item.to_dict(),
+                }, status=201)
+
+            messages.success(request, message)
+            return redirect(safe_next_url(request, reverse('graveyard:graveyard_list')))
+
+        if is_ajax(request):
+            return JsonResponse({'ok': False, 'errors': form.errors}, status=400)
+
+        return render(request, 'graveyard/item_form.html', {
+            'form': form,
+            'title': 'Catat Bahan Terbuang Baru',
+            'submit_label': 'Catat ke Graveyard',
+        }, status=400)
+
+    form = GraveyardItemForm()
+    return render(request, 'graveyard/item_form.html', {
+        'form': form,
+        'title': 'Catat Bahan Terbuang Baru',
+        'submit_label': 'Catat ke Graveyard',
+    })
+
+
+@require_http_methods(['GET', 'POST'])
+@login_required_ajax
+def graveyard_edit(request, pk):
+    """Endpoint Update: Memperbarui data catatan nisan limbah di Graveyard."""
+    item = get_object_or_404(GraveyardItem, pk=pk, user=request.user)
+
+    if request.method == 'POST':
+        form = GraveyardItemForm(request.POST, instance=item)
+        if form.is_valid():
+            item = form.save()
+            message = f'Catatan nisan "{item.name}" berhasil diperbarui.'
+
+            if is_ajax(request):
+                return JsonResponse({
+                    'ok': True,
+                    'message': message,
+                    'graveyard_item': item.to_dict(),
+                })
+
+            messages.success(request, message)
+            return redirect(safe_next_url(request, reverse('graveyard:graveyard_list')))
+
+        if is_ajax(request):
+            return JsonResponse({'ok': False, 'errors': form.errors}, status=400)
+
+        return render(request, 'graveyard/item_form.html', {
+            'form': form,
+            'item': item,
+            'title': f'Ubah Catatan Nisan: {item.name}',
+            'submit_label': 'Simpan Perubahan',
+        }, status=400)
+
+    form = GraveyardItemForm(instance=item)
+    return render(request, 'graveyard/item_form.html', {
+        'form': form,
+        'item': item,
+        'title': f'Ubah Catatan Nisan: {item.name}',
+        'submit_label': 'Simpan Perubahan',
     })
 
 
