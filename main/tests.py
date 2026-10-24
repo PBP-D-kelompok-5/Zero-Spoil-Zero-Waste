@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.template.loader import render_to_string
+from django.test import TestCase, override_settings
 from django.urls import resolve, reverse
 
 
@@ -110,3 +111,26 @@ class AuthTest(TestCase):
         for url_name in ['main:login', 'main:register']:
             response = self.client.get(reverse(url_name))
             self.assertRedirects(response, reverse('main:show_main'))
+
+
+@override_settings(DEBUG=False, ALLOWED_HOSTS=['testserver'])
+class ErrorPageTest(TestCase):
+    def test_404_uses_custom_page(self):
+        response = self.client.get('/tidak-ada-di-sini/')
+        self.assertEqual(response.status_code, 404)
+        self.assertTemplateUsed(response, '404.html')
+        self.assertContains(response, 'sudah dikubur', status_code=404)
+        self.assertContains(response, reverse('main:show_main'), status_code=404)
+
+    def test_other_users_data_shows_same_404_page(self):
+        owner = User.objects.create_user('pemilik', password='Kulkas-Bersama-2026')
+        from death_clock.models import PantryItem
+        item = PantryItem.objects.create(user=owner, name='Tahu', expiry_date='2026-11-01')
+        self.client.force_login(User.objects.create_user('tetangga', password='Kulkas-Bersama-2026'))
+        response = self.client.get(reverse('death_clock:item_update', args=[item.pk]))
+        self.assertTemplateUsed(response, '404.html')
+
+    def test_500_page_renders_without_request_context(self):
+        html = render_to_string('500.html')
+        self.assertIn('Terjadi galat', html)
+        self.assertIn('href="/"', html)

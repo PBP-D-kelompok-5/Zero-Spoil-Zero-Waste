@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}Halaman tidak ditemukan · Pantry Necromancer{% endblock title %}
+
+{% block content %}
+<section class="pn-container flex min-h-[60vh] flex-col items-center justify-center gap-6 py-16 text-center">
+  <span class="pn-badge pn-tone-ember">404</span>
+  <h1 class="pn-display">Halaman ini <span class="italic text-ember-400">sudah dikubur.</span></h1>
+  <p class="pn-lead max-w-xl">
+    Alamat yang kamu buka tidak ada, sudah dipindahkan, atau datanya bukan milikmu.
+    Coba kembali ke beranda atau buka salah satu modul.
+  </p>
+  <div class="flex flex-wrap justify-center gap-3">
+    <a href="{% url 'main:show_main' %}" class="pn-btn pn-btn--primary">Kembali ke beranda</a>
+    <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--secondary">Buka Death Clock</a>
+  </div>
+</section>
+{% endblock content %}

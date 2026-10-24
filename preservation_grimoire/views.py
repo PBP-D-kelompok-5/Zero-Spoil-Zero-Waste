@@ -36,6 +36,7 @@ def grimoire_list(request):
 
     context = {
         'guides': guides,
+        'categories': PreservationGuide.CATEGORY_CHOICES,
         'selected_category': category_filter,
         'search_query': query,
     }
