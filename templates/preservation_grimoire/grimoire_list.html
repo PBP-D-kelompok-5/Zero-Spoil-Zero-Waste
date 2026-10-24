@@ -11,6 +11,10 @@
         <a href="{% url 'preservation_grimoire:grimoire_create' %}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg shadow">
             + Tambah Panduan
         </a>
+        {% else %}
+        <a href="{% url 'main:login' %}?next={{ request.get_full_path|urlencode }}" class="border border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-semibold py-2 px-4 rounded-lg">
+            Masuk untuk menulis panduan
+        </a>
         {% endif %}
     </div>
 
@@ -57,4 +61,4 @@
         {% endfor %}
     </div>
 </div>
-{% endblock %}
+{% endblock %}

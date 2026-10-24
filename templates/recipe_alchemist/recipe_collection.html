@@ -11,6 +11,8 @@
     </div>
     {% if user.is_authenticated %}
       <a href="{% url 'recipe_alchemist:recipe_create' %}" class="pn-btn pn-btn--primary">+ Resep baru</a>
+    {% else %}
+      <a href="{% url 'main:login' %}?next={{ request.get_full_path|urlencode }}" class="pn-btn pn-btn--secondary">Masuk untuk menulis resep</a>
     {% endif %}
   </header>
 
@@ -47,4 +49,4 @@
     {% endif %}
   </section>
 </div>
-{% endblock content %}
+{% endblock content %}

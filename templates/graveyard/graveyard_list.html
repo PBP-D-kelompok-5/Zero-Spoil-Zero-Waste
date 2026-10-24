@@ -776,6 +776,13 @@
             },
           });
 
+          if (response.status === 401) {
+            // Sesi habis: ke halaman masuk lalu kembali ke sini (sama seperti Death Clock).
+            const data = await response.json().catch(() => ({}));
+            window.location.href = `${data.login_url || '/login/'}?next=${encodeURIComponent(location.pathname)}`;
+            return;
+          }
+
           if (response.ok) {
             const data = await response.json();
 

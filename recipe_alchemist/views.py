@@ -1,8 +1,4 @@
-from functools import wraps
-
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.views import redirect_to_login
 from django.db.models import Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -10,27 +6,13 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from death_clock.models import PantryItem
+from main.auth import guest_page, is_ajax, login_required_ajax
 from .forms import RecipeForm, SaveApiRecipeForm, SearchForm
 from .models import Recipe
 from .services import SpoonacularError, find_by_ingredients, to_english
 
 
-def is_ajax(request):
-    return request.headers.get('x-requested-with') == 'XMLHttpRequest'
-
-
-def login_required_ajax(view):
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return view(request, *args, **kwargs)
-        if is_ajax(request):
-            return JsonResponse(
-                {'ok': False, 'detail': 'Silakan masuk terlebih dahulu.', 'login_url': reverse('main:login')},
-                status=401,
-            )
-        return redirect_to_login(request.get_full_path())
-    return wrapper
+# Alur autentikasi (login_required_ajax, guest_page) ada di main/auth.py dan dipakai semua modul.
 
 
 def local_matches(request, names, max_minutes, diet, limit=12):
@@ -110,7 +92,7 @@ def _collection(request, queryset, scope):
 
 
 @require_GET
-@login_required
+@guest_page('recipe_alchemist/guest.html')  # koleksi pribadi
 def my_recipes(request):
     return _collection(request, Recipe.objects.filter(user=request.user), 'mine')
 
@@ -133,7 +115,7 @@ def recipe_detail(request, pk):
 
 # ---------- Create ----------
 @require_http_methods(['GET', 'POST'])
-@login_required
+@login_required_ajax
 def recipe_create(request):
     form = RecipeForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
@@ -173,7 +155,7 @@ def recipe_save_api(request):
 
 # ---------- Update ----------
 @require_http_methods(['GET', 'POST'])
-@login_required
+@login_required_ajax
 def recipe_update(request, pk):
     recipe = get_object_or_404(Recipe, pk=pk, user=request.user)
     form = RecipeForm(request.POST or None, instance=recipe)
@@ -188,10 +170,10 @@ def recipe_update(request, pk):
 
 # ---------- Delete ----------
 @require_POST
-@login_required
+@login_required_ajax
 def recipe_delete(request, pk):
     recipe = get_object_or_404(Recipe, pk=pk, user=request.user)
     title = recipe.title
     recipe.delete()
     messages.success(request, f'{title} dihapus.')
-    return redirect('recipe_alchemist:my_recipes')
+    return redirect('recipe_alchemist:my_recipes')

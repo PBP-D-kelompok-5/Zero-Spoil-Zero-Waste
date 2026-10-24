@@ -1,9 +1,9 @@
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.shortcuts import redirect, render
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
+from main.auth import safe_next_url
 from main.forms import LoginForm, RegisterForm
 
 MODULES = [
@@ -63,12 +63,7 @@ def show_main(request):
 
 def get_next_url(request):
     """Ambil ?next= hanya jika mengarah ke situs ini sendiri."""
-    next_url = request.POST.get('next') or request.GET.get('next')
-    if next_url and url_has_allowed_host_and_scheme(
-        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
-    ):
-        return next_url
-    return 'main:show_main'
+    return safe_next_url(request, 'main:show_main')
 
 
 def register(request):

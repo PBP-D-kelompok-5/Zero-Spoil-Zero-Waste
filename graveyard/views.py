@@ -9,10 +9,8 @@ Menyediakan:
 """
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from functools import wraps
 
 from django.contrib import messages
-from django.contrib.auth.views import redirect_to_login
 from django.db.models import Count, Q, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -23,36 +21,11 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from death_clock.models import PantryItem
 from graveyard.models import Category, DisposalReason, GraveyardItem
 from graveyard.wrapped import generate_haunting_wrapped
+from main.auth import guest_page, is_ajax, login_required_ajax, safe_next_url
 
 
-# ---------- Helper & Autentikasi ----------
-def is_ajax(request):
-    """Mendeteksi apakah permintaan berasal dari AJAX (X-Requested-With) atau meminta JSON."""
-    return (
-        request.headers.get('x-requested-with') == 'XMLHttpRequest'
-        or request.GET.get('format') == 'json'
-    )
-
-
-def login_required_ajax(view):
-    """Memastikan pengguna terautentikasi. Permintaan AJAX/JSON merespons 401 JSON, bukan 302 redirect."""
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return view(request, *args, **kwargs)
-        if is_ajax(request) or request.path.endswith('/json/'):
-            return JsonResponse(
-                {
-                    'ok': False,
-                    'detail': 'Silakan masuk terlebih dahulu untuk mengakses Graveyard.',
-                    'login_url': reverse('main:login'),
-                },
-                status=401,
-            )
-        return redirect_to_login(request.get_full_path())
-    return wrapper
-
-
+# ---------- Helper ----------
+# Alur autentikasi (login_required_ajax, guest_page) ada di main/auth.py dan dipakai semua modul.
 def parse_decimal_safe(value, default=Decimal('0.00')):
     """Mengonversi nilai input ke Decimal dengan aman tanpa throw exception."""
     if value is None or str(value).strip() == '':
@@ -150,7 +123,7 @@ def calculate_analytics(user_items):
 
 # ---------- Views ----------
 @require_GET
-@login_required_ajax
+@guest_page('graveyard/guest.html')  # riwayat pembuangan privat
 def graveyard_list(request):
     """Endpoint 1: Menampilkan daftar item terbuang dan ringkasan agregasi analitik."""
     user_items = GraveyardItem.objects.filter(user=request.user)
@@ -261,8 +234,7 @@ def move_from_death_clock(request, pantry_item_id):
             }, status=201)
 
         messages.warning(request, success_message)
-        next_url = request.POST.get('next') or reverse('graveyard:graveyard_list')
-        return redirect(next_url)
+        return redirect(safe_next_url(request, reverse('graveyard:graveyard_list')))
 
     # Permintaan GET: Menampilkan formulir konfirmasi pemindahan
     context = {

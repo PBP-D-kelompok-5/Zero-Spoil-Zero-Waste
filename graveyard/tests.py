@@ -196,11 +196,15 @@ class GraveyardViewTest(TestCase):
 
     # ---------- Autentikasi ----------
     def test_views_require_authentication(self):
-        """Memastikan semua views dilindungi autentikasi login (302 redirect atau 401 JSON)."""
-        # Akses HTML reguler -> redirect login (302)
+        """Alur autentikasi sama dengan Death Clock: halaman tamu, redirect login, atau 401 JSON."""
+        # Tamu membuka daftar -> halaman pengenalan modul + tombol masuk dengan ?next=
         response = self.client.get(self.list_url)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse('main:login'), response.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'graveyard/guest.html')
+        self.assertContains(response, f"{reverse('main:login')}?next={self.list_url}")
+
+        # ?format=json tanpa login -> 401 JSON
+        self.assertEqual(self.client.get(self.list_url, {'format': 'json'}).status_code, 401)
 
         # Akses AJAX -> 401 JSON
         ajax_resp = self.client.get(self.list_url, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
@@ -212,9 +216,11 @@ class GraveyardViewTest(TestCase):
         self.assertEqual(json_resp.status_code, 401)
         self.assertFalse(json_resp.json()['ok'])
 
-        # Move endpoint tanpa login -> 302
+        # Move endpoint tanpa login -> 302 ke halaman masuk, lalu kembali ke halaman asal
         move_url = reverse('graveyard:move_from_death_clock', args=[999])
-        self.assertEqual(self.client.get(move_url).status_code, 302)
+        self.assertRedirects(
+            self.client.get(move_url), f"{reverse('main:login')}?next={move_url}", fetch_redirect_response=False
+        )
         self.assertEqual(self.client.post(move_url).status_code, 302)
 
         # Delete endpoint tanpa login -> 302
@@ -458,6 +464,25 @@ class GraveyardViewTest(TestCase):
         self.assertFalse(PantryItem.objects.filter(pk=pantry_item.pk).exists())
         # Masuk ke Graveyard
         self.assertTrue(GraveyardItem.objects.filter(user=self.user, name='Bayam Busuk').exists())
+
+    def test_move_ignores_external_next(self):
+        """Tujuan redirect dari input pengguna hanya boleh ke situs sendiri."""
+        item = PantryItem.objects.create(
+            user=self.user,
+            name='Tahu',
+            category=Category.MEAT,
+            quantity=1,
+            unit=Unit.PIECE,
+            storage=Storage.FRIDGE,
+            purchase_date=self.today - timedelta(days=5),
+            expiry_date=self.today - timedelta(days=1),
+        )
+        self.client.login(username='adam_necro', password=self.password)
+        response = self.client.post(
+            reverse('graveyard:move_from_death_clock', args=[item.pk]),
+            {'reason': 'EXPIRED', 'next': 'https://contoh-jahat.com/'},
+        )
+        self.assertRedirects(response, self.list_url, fetch_redirect_response=False)
 
     def test_move_from_death_clock_other_user_item_404(self):
         """Memastikan pengguna tidak dapat memindahkan bahan milik orang lain (404 isolation)."""

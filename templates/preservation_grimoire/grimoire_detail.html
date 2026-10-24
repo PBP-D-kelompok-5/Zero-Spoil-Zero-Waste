@@ -26,12 +26,28 @@
     </div>
   </div>
 
-  <div class="flex items-center space-x-3 pt-4 border-t">
-    {% if user == guide.author or user.is_staff %}
+  <div class="flex flex-wrap items-center gap-3 pt-4 border-t">
+    {% if user.is_authenticated %}
+    <form method="post" action="{% url 'preservation_grimoire:toggle_upvote' guide.pk %}" data-grimoire-upvote>
+      {% csrf_token %}
+      <button type="submit" class="px-4 py-2 font-medium rounded-md border transition {% if has_upvoted %}bg-emerald-600 text-white border-emerald-600{% else %}text-emerald-700 border-emerald-600 hover:bg-emerald-50{% endif %}" aria-pressed="{{ has_upvoted|yesno:'true,false' }}">
+        👍 <span data-upvote-count>{{ guide.total_upvotes }}</span> Upvote
+      </button>
+    </form>
+    {% else %}
+    <a href="{% url 'main:login' %}?next={{ request.path|urlencode }}" class="px-4 py-2 font-medium rounded-md border text-emerald-700 border-emerald-600 hover:bg-emerald-50 transition">
+      👍 {{ guide.total_upvotes }} · Masuk untuk upvote
+    </a>
+    {% endif %}
+    {% if can_edit %}
     <a href="{% url 'preservation_grimoire:grimoire_edit' guide.pk %}" 
        class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-md transition">
       Edit
     </a>
+    <form method="post" action="{% url 'preservation_grimoire:grimoire_delete' guide.pk %}" onsubmit="return confirm('Hapus panduan ini?');">
+      {% csrf_token %}
+      <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md transition">Hapus</button>
+    </form>
     {% endif %}
     <a href="{% url 'preservation_grimoire:grimoire_list' %}" 
        class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-md transition">
@@ -40,3 +56,39 @@
   </div>
 </div>
 {% endblock %}
+
+{% block scripts %}
+<script>
+  // Upvote tanpa memuat ulang halaman; tanpa JavaScript form tetap bekerja lewat POST biasa.
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!form.matches("[data-grimoire-upvote]")) return;
+    event.preventDefault();
+    const button = form.querySelector("button");
+    button.disabled = true;
+    try {
+      const response = await fetch(form.action, {
+        method: "POST",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        body: new FormData(form),
+        credentials: "same-origin",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        // Sesi habis: ke halaman masuk lalu kembali ke sini (sama seperti Death Clock).
+        window.location.href = `${data.login_url || "/login/"}?next=${encodeURIComponent(location.pathname)}`;
+        return;
+      }
+      if (!response.ok) throw new Error();
+      form.querySelector("[data-upvote-count]").textContent = data.total_upvotes;
+      button.setAttribute("aria-pressed", data.upvoted ? "true" : "false");
+      ["bg-emerald-600", "text-white"].forEach((c) => button.classList.toggle(c, data.upvoted));
+      ["text-emerald-700", "hover:bg-emerald-50"].forEach((c) => button.classList.toggle(c, !data.upvoted));
+    } catch (_) {
+      form.submit();
+    } finally {
+      button.disabled = false;
+    }
+  });
+</script>
+{% endblock scripts %}
