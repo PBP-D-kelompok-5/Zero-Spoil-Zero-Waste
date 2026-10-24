@@ -1,10 +1,3 @@
-"""Forms untuk Modul 4 · The Graveyard & Waste Analytics.
-
-Menyediakan:
-1. GraveyardItemForm: ModelForm lengkap untuk menambah (Create) dan mengubah (Update)
-   catatan bahan makanan yang terbuang.
-2. GraveyardMoveForm: ModelForm khusus ritual pemindahan dari inventaris Death Clock.
-"""
 from decimal import Decimal
 
 from django import forms

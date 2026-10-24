@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from death_clock.models import PantryItem, Storage
+from graveyard.forms import BuryForm
 from graveyard.models import (
     CARBON_FACTORS_PER_KG, Category, DisposalReason, GraveyardItem, Unit,
 )
@@ -526,15 +527,45 @@ class GraveyardViewTest(TestCase):
         self.assertEqual(GraveyardItem.objects.get(user=self.user).estimated_loss, Decimal('9999999999.99'))
         self.assertEqual(self.client.get(self.list_url).status_code, 200)
 
-    def test_move_treats_nan_and_infinity_as_empty(self):
+    def test_move_rejects_nan_negative_and_future_date(self):
         item = self._fresh_pantry_item()
+        url = reverse('graveyard:move_from_death_clock', args=[item.pk])
+        self.client.login(username='adam_necro', password=self.password)
+        cases = [
+            ({'estimated_loss': 'NaN'}, 'estimated_loss'),
+            ({'weight_g': '-5'}, 'weight_g'),
+            ({'disposed_at': str(self.today + timedelta(days=1))}, 'disposed_at'),
+            ({'reason': 'BUKAN_ALASAN'}, 'reason'),
+        ]
+        for data, field in cases:
+            response = self.client.post(url, {'reason': 'EXPIRED', **data}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+            self.assertEqual(response.status_code, 400, data)
+            self.assertIn(field, response.json()['errors'])
+        self.assertFalse(GraveyardItem.objects.filter(user=self.user).exists())
+
+    def test_move_defaults_for_optional_fields(self):
+        """Kerugian/berat kosong -> 0, tanggal kosong -> hari ini, catatan tidak dikirim -> catatan Death Clock."""
+        item = self._fresh_pantry_item()
+        item.notes = 'Ada di laci bawah'
+        item.save()
         self.client.login(username='adam_necro', password=self.password)
         self.client.post(
             reverse('graveyard:move_from_death_clock', args=[item.pk]),
-            {'reason': 'EXPIRED', 'estimated_loss': 'NaN', 'weight_g': 'Infinity'},
+            {'reason': 'FORGOTTEN', 'estimated_loss': '', 'weight_g': '', 'disposed_at': ''},
         )
         buried = GraveyardItem.objects.get(user=self.user)
-        self.assertEqual((buried.estimated_loss, buried.weight_g), (Decimal('0.00'), Decimal('0.00')))
+        self.assertEqual(
+            (buried.estimated_loss, buried.weight_g, buried.disposed_at, buried.notes),
+            (Decimal('0.00'), Decimal('0.00'), self.today, 'Ada di laci bawah'),
+        )
+
+    def test_move_form_page_shows_defaults(self):
+        item = self._fresh_pantry_item()
+        self.client.login(username='adam_necro', password=self.password)
+        response = self.client.get(reverse('graveyard:move_from_death_clock', args=[item.pk]))
+        self.assertIsInstance(response.context['form'], BuryForm)
+        self.assertContains(response, f'value="{self.today.isoformat()}"')
+        self.assertContains(response, 'max="9999999999.99"')
 
     def test_move_from_death_clock_other_user_item_404(self):
         """Memastikan pengguna tidak dapat memindahkan bahan milik orang lain (404 isolation)."""

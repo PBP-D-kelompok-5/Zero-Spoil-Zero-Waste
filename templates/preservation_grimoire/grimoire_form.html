@@ -1,13 +1,18 @@
 {% extends 'base.html' %}
 
+{% block title %}{{ title }} · Preservation Grimoire{% endblock title %}
+
 {% block content %}
-<div class="container mx-auto p-4">
-  <h1 class="text-2xl font-bold mb-4">{% if form.instance.pk %}Edit{% else %}Tambah{% endif %} Grimoire</h1>
-  <form method="post" class="space-y-4">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Simpan</button>
-    <a href="{% url 'preservation_grimoire:grimoire_list' %}" class="bg-gray-500 text-white px-4 py-2 rounded">Batal</a>
-  </form>
-</div>
-{% endblock %}
+<section class="pn-container flex justify-center py-10 sm:py-14">
+  <div class="w-full max-w-xl">
+    <a href="{% if form.instance.pk %}{% url 'preservation_grimoire:grimoire_detail' form.instance.pk %}{% else %}{% url 'preservation_grimoire:grimoire_list' %}{% endif %}" class="pn-link text-sm">← Kembali</a>
+    <h1 class="pn-heading mb-6 mt-4">{{ title }}</h1>
+    <form method="post" class="pn-form pn-card" novalidate>
+      {% csrf_token %}
+      {% for error in form.non_field_errors %}<p class="pn-error mb-4">{{ error }}</p>{% endfor %}
+      {% for field in form %}{% include 'partials/form_field.html' %}{% endfor %}
+      <button type="submit" class="pn-btn pn-btn--primary pn-btn--block">Simpan panduan</button>
+    </form>
+  </div>
+</section>
+{% endblock content %}

@@ -9,8 +9,7 @@ Menyediakan:
 5. graveyard_edit: Memperbarui data catatan nisan limbah (Update).
 6. graveyard_delete: Menghapus catatan pembuangan jika terjadi kesalahan input (Delete).
 """
-from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from django.contrib import messages
 from django.db.models import Count, Q, Sum
@@ -30,43 +29,6 @@ from main.auth import guest_page, is_ajax, login_required_ajax, safe_next_url
 
 # ---------- Helper ----------
 # Alur autentikasi (login_required_ajax, guest_page) ada di main/auth.py dan dipakai semua modul.
-def parse_decimal_safe(value, default=Decimal('0.00')):
-    """Mengonversi nilai input ke Decimal dengan aman tanpa throw exception."""
-    if value is None or str(value).strip() == '':
-        return default
-    try:
-        parsed = Decimal(str(value).strip().replace(',', '.'))
-        if not parsed.is_finite():  # 'NaN', 'Infinity'
-            return default
-        return max(Decimal('0.00'), parsed)
-    except (InvalidOperation, ValueError, TypeError):
-        return default
-
-
-def field_max(field_name):
-    """Nilai terbesar yang muat di DecimalField model (mis. max_digits=12, decimal_places=2 -> 9999999999.99)."""
-    field = GraveyardItem._meta.get_field(field_name)
-    whole = field.max_digits - field.decimal_places
-    return Decimal('9' * whole + '.' + '9' * field.decimal_places)
-
-
-# Batas input angka di form "kubur": melebihi ini akan membuat database galat (500).
-AMOUNT_LIMITS = {
-    'estimated_loss': ('Estimasi kerugian', field_max('estimated_loss')),
-    'weight_g': ('Estimasi berat', field_max('weight_g')),
-}
-
-
-def parse_date_safe(value, default=None):
-    """Mengonversi string YYYY-MM-DD ke objek date dengan aman."""
-    if not value:
-        return default or timezone.localdate()
-    try:
-        return datetime.strptime(str(value).strip(), '%Y-%m-%d').date()
-    except (ValueError, TypeError):
-        return default or timezone.localdate()
-
-
 def calculate_analytics(user_items):
     """Menghitung metrik analitik limbah makanan milik pengguna."""
     today = timezone.localdate()
@@ -299,41 +261,24 @@ def move_from_death_clock(request, pantry_item_id):
     pantry_item = get_object_or_404(PantryItem, pk=pantry_item_id, user=request.user)
 
     if request.method == 'POST':
-        reason = request.POST.get('reason', DisposalReason.EXPIRED).strip()
-        if reason not in DisposalReason.values:
-            reason = DisposalReason.EXPIRED
-
-        notes = request.POST.get('notes', pantry_item.notes or '').strip()
-        weight_g = parse_decimal_safe(request.POST.get('weight_g'))
-        estimated_loss = parse_decimal_safe(request.POST.get('estimated_loss'))
-        disposed_at = parse_date_safe(request.POST.get('disposed_at'))
-
-        errors = [
-            f'{label} terlalu besar (maksimal {int(maximum):,}).'.replace(',', '.')
-            for name, (label, maximum) in AMOUNT_LIMITS.items()
-            if {'estimated_loss': estimated_loss, 'weight_g': weight_g}[name] > maximum
-        ]
-        if errors:
-            detail = ' '.join(errors)
+        data = request.POST.copy()
+        data.setdefault('notes', pantry_item.notes or '')  # klien AJAX boleh tidak mengirim catatan
+        form = BuryForm(data)
+        if not form.is_valid():
+            detail = ' '.join(error for errors in form.errors.values() for error in errors)
             if is_ajax(request):
-                return JsonResponse({'ok': False, 'detail': detail}, status=400)
-            messages.error(request, detail)
-            return render(request, 'graveyard/move_form.html', move_form_context(pantry_item, request.POST), status=400)
+                return JsonResponse({'ok': False, 'detail': detail, 'errors': form.errors}, status=400)
+            return render(request, 'graveyard/move_form.html', move_form_context(pantry_item, form), status=400)
 
         # Buat catatan di Graveyard
-        graveyard_item = GraveyardItem.objects.create(
-            user=request.user,
-            name=pantry_item.name,
-            category=pantry_item.category,
-            reason=reason,
-            notes=notes,
-            expiry_date=pantry_item.expiry_date,
-            disposed_at=disposed_at,
-            quantity=pantry_item.quantity,
-            unit=pantry_item.unit,
-            weight_g=weight_g,
-            estimated_loss=estimated_loss,
-        )
+        graveyard_item = form.save(commit=False)
+        graveyard_item.user = request.user
+        graveyard_item.name = pantry_item.name
+        graveyard_item.category = pantry_item.category
+        graveyard_item.expiry_date = pantry_item.expiry_date
+        graveyard_item.quantity = pantry_item.quantity
+        graveyard_item.unit = pantry_item.unit
+        graveyard_item.save()
 
         item_name = pantry_item.name
         # Hapus bahan dari Death Clock karena telah berakhir di Graveyard
@@ -352,19 +297,12 @@ def move_from_death_clock(request, pantry_item_id):
         return redirect(safe_next_url(request, reverse('graveyard:graveyard_list')))
 
     # Permintaan GET: Menampilkan formulir konfirmasi pemindahan
-    return render(request, 'graveyard/move_form.html', move_form_context(pantry_item))
+    form = BuryForm(initial={'notes': pantry_item.notes})
+    return render(request, 'graveyard/move_form.html', move_form_context(pantry_item, form))
 
 
-def move_form_context(pantry_item, values=None):
-    """Konteks form kubur; ``values`` (POST) dipakai agar isian tidak hilang saat ada galat."""
-    return {
-        'pantry_item': pantry_item,
-        'reasons': DisposalReason.choices,
-        'today': timezone.localdate().isoformat(),
-        'values': values or {},
-        'loss_max': AMOUNT_LIMITS['estimated_loss'][1],
-        'weight_max': AMOUNT_LIMITS['weight_g'][1],
-    }
+def move_form_context(pantry_item, form):
+    return {'pantry_item': pantry_item, 'form': form}
 
 
 @require_POST
