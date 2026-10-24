@@ -772,3 +772,261 @@ class GraveyardWrappedTest(TestCase):
         self.assertIn('3 porsi nasi ayam geprek', fin_slide['detail'])
 
 
+
+
+from graveyard.forms import GraveyardItemForm, GraveyardMoveForm, LOSS_MAX, WEIGHT_MAX
+
+
+class GraveyardFormTest(TestCase):
+    def setUp(self):
+        self.today = timezone.localdate()
+
+    def test_item_form_valid(self):
+        form_data = {
+            'name': 'Sawi Putih',
+            'category': Category.VEG,
+            'reason': DisposalReason.SPOILED_EARLY,
+            'quantity': 2,
+            'unit': Unit.PIECE,
+            'weight_g': '400.00',
+            'estimated_loss': '10000.00',
+            'disposed_at': str(self.today),
+            'expiry_date': str(self.today - timedelta(days=1)),
+            'notes': 'Layu kecokelatan',
+        }
+        form = GraveyardItemForm(data=form_data)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['name'], 'Sawi Putih')
+
+    def test_item_form_blank_name_invalid(self):
+        form = GraveyardItemForm(data={'name': '   ', 'category': Category.VEG})
+        self.assertFalse(form.is_valid())
+        self.assertIn('name', form.errors)
+
+    def test_item_form_quantity_min_one(self):
+        form = GraveyardItemForm(data={'name': 'Roti', 'quantity': 0})
+        self.assertFalse(form.is_valid())
+        self.assertIn('quantity', form.errors)
+
+    def test_item_form_negative_numbers(self):
+        form = GraveyardItemForm(data={'name': 'Roti', 'quantity': 1, 'estimated_loss': '-500', 'weight_g': '-10'})
+        self.assertFalse(form.is_valid())
+        self.assertIn('estimated_loss', form.errors)
+        self.assertIn('weight_g', form.errors)
+
+    def test_item_form_overflow_limits(self):
+        form = GraveyardItemForm(data={
+            'name': 'Roti',
+            'quantity': 1,
+            'estimated_loss': str(LOSS_MAX + 100),
+            'weight_g': str(WEIGHT_MAX + 100),
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn('estimated_loss', form.errors)
+        self.assertIn('weight_g', form.errors)
+
+    def test_item_form_disposed_at_future_rejected(self):
+        form = GraveyardItemForm(data={
+            'name': 'Roti',
+            'quantity': 1,
+            'disposed_at': str(self.today + timedelta(days=2)),
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn('disposed_at', form.errors)
+
+    def test_move_form_valid_and_clean(self):
+        form_data = {
+            'reason': DisposalReason.EXPIRED,
+            'estimated_loss': '15000.00',
+            'weight_g': '250.00',
+            'disposed_at': str(self.today),
+            'notes': 'Terlupa',
+        }
+        form = GraveyardMoveForm(data=form_data)
+        self.assertTrue(form.is_valid(), form.errors)
+
+
+class GraveyardCRUDViewsTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='adam_crud', password='Password123!')
+        self.other_user = User.objects.create_user(username='other_crud', password='Password123!')
+        self.password = 'Password123!'
+        self.today = timezone.localdate()
+
+    def test_create_view_requires_login(self):
+        url = reverse('graveyard:graveyard_create')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+
+        ajax = self.client.get(url, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(ajax.status_code, 401)
+
+    def test_create_view_get(self):
+        self.client.login(username='adam_crud', password=self.password)
+        url = reverse('graveyard:graveyard_create')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'graveyard/item_form.html')
+        self.assertIn('form', response.context)
+
+    def test_create_view_post_standard(self):
+        self.client.login(username='adam_crud', password=self.password)
+        url = reverse('graveyard:graveyard_create')
+        post_data = {
+            'name': 'Alpukat Busuk',
+            'category': Category.VEG,
+            'reason': DisposalReason.SPOILED_EARLY,
+            'quantity': 3,
+            'unit': Unit.PIECE,
+            'weight_g': '450.00',
+            'estimated_loss': '25000.00',
+            'disposed_at': str(self.today),
+            'notes': 'Menghitam di bagian dalam',
+        }
+        response = self.client.post(url, post_data)
+        self.assertRedirects(response, reverse('graveyard:graveyard_list'))
+        created = GraveyardItem.objects.filter(user=self.user, name='Alpukat Busuk').first()
+        self.assertIsNotNone(created)
+        self.assertEqual(created.quantity, 3)
+        self.assertEqual(created.estimated_loss, Decimal('25000.00'))
+
+    def test_create_view_post_ajax(self):
+        self.client.login(username='adam_crud', password=self.password)
+        url = reverse('graveyard:graveyard_create')
+        post_data = {
+            'name': 'Keju Berjamur',
+            'category': Category.DAIRY,
+            'reason': DisposalReason.MOLD,
+            'quantity': 1,
+            'unit': Unit.PACK,
+            'weight_g': '200.00',
+            'estimated_loss': '30000.00',
+            'disposed_at': str(self.today),
+        }
+        response = self.client.post(url, post_data, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertTrue(data['ok'])
+        self.assertEqual(data['graveyard_item']['name'], 'Keju Berjamur')
+        self.assertTrue(GraveyardItem.objects.filter(user=self.user, name='Keju Berjamur').exists())
+
+    def test_create_view_post_invalid(self):
+        self.client.login(username='adam_crud', password=self.password)
+        url = reverse('graveyard:graveyard_create')
+        response = self.client.post(url, {'name': ''})
+        self.assertEqual(response.status_code, 400)
+        self.assertTemplateUsed(response, 'graveyard/item_form.html')
+
+        ajax = self.client.post(url, {'name': ''}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(ajax.status_code, 400)
+        self.assertFalse(ajax.json()['ok'])
+        self.assertIn('name', ajax.json()['errors'])
+
+    def test_edit_view_requires_login(self):
+        item = GraveyardItem.objects.create(user=self.user, name='Tomat')
+        url = reverse('graveyard:graveyard_edit', args=[item.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_edit_view_other_user_item_404(self):
+        item = GraveyardItem.objects.create(user=self.other_user, name='Daging')
+        self.client.login(username='adam_crud', password=self.password)
+        url = reverse('graveyard:graveyard_edit', args=[item.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+        post_resp = self.client.post(url, {'name': 'Hack'})
+        self.assertEqual(post_resp.status_code, 404)
+
+    def test_edit_view_get(self):
+        item = GraveyardItem.objects.create(
+            user=self.user,
+            name='Kangkung Layu',
+            category=Category.VEG,
+            reason=DisposalReason.FORGOTTEN,
+            quantity=1,
+            unit=Unit.BUNCH,
+            estimated_loss=Decimal('5000.00'),
+        )
+        self.client.login(username='adam_crud', password=self.password)
+        url = reverse('graveyard:graveyard_edit', args=[item.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'graveyard/item_form.html')
+        self.assertEqual(response.context['item'], item)
+        self.assertContains(response, 'Kangkung Layu')
+
+    def test_edit_view_post_standard(self):
+        item = GraveyardItem.objects.create(
+            user=self.user,
+            name='Kangkung Layu',
+            category=Category.VEG,
+            reason=DisposalReason.FORGOTTEN,
+            quantity=1,
+            unit=Unit.BUNCH,
+            estimated_loss=Decimal('5000.00'),
+            disposed_at=self.today,
+        )
+        self.client.login(username='adam_crud', password=self.password)
+        url = reverse('graveyard:graveyard_edit', args=[item.pk])
+        post_data = {
+            'name': 'Kangkung Sangat Layu',
+            'category': Category.VEG,
+            'reason': DisposalReason.SMELL_TEXTURE,
+            'quantity': 2,
+            'unit': Unit.BUNCH,
+            'weight_g': '400.00',
+            'estimated_loss': '10000.00',
+            'disposed_at': str(self.today),
+            'notes': 'Koreksi kuantitas dan harga',
+        }
+        response = self.client.post(url, post_data)
+        self.assertRedirects(response, reverse('graveyard:graveyard_list'))
+
+        item.refresh_from_db()
+        self.assertEqual(item.name, 'Kangkung Sangat Layu')
+        self.assertEqual(item.reason, DisposalReason.SMELL_TEXTURE)
+        self.assertEqual(item.quantity, 2)
+        self.assertEqual(item.estimated_loss, Decimal('10000.00'))
+        self.assertEqual(item.notes, 'Koreksi kuantitas dan harga')
+
+    def test_edit_view_post_ajax(self):
+        item = GraveyardItem.objects.create(
+            user=self.user,
+            name='Kangkung',
+            category=Category.VEG,
+            reason=DisposalReason.FORGOTTEN,
+            quantity=1,
+            unit=Unit.BUNCH,
+            estimated_loss=Decimal('5000.00'),
+            disposed_at=self.today,
+        )
+        self.client.login(username='adam_crud', password=self.password)
+        url = reverse('graveyard:graveyard_edit', args=[item.pk])
+        post_data = {
+            'name': 'Kangkung Organik',
+            'category': Category.VEG,
+            'reason': DisposalReason.EXPIRED,
+            'quantity': 1,
+            'unit': Unit.BUNCH,
+            'weight_g': '200.00',
+            'estimated_loss': '7000.00',
+            'disposed_at': str(self.today),
+        }
+        response = self.client.post(url, post_data, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['ok'])
+        self.assertEqual(data['graveyard_item']['name'], 'Kangkung Organik')
+        self.assertEqual(data['graveyard_item']['estimated_loss'], 7000.0)
+
+    def test_edit_view_post_invalid(self):
+        item = GraveyardItem.objects.create(user=self.user, name='Kangkung')
+        self.client.login(username='adam_crud', password=self.password)
+        url = reverse('graveyard:graveyard_edit', args=[item.pk])
+        response = self.client.post(url, {'name': ''})
+        self.assertEqual(response.status_code, 400)
+
+        ajax = self.client.post(url, {'name': ''}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(ajax.status_code, 400)
+        self.assertFalse(ajax.json()['ok'])
