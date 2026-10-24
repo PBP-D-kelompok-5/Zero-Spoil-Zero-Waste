@@ -14,7 +14,28 @@
       <a href="{% url 'preservation_grimoire:grimoire_list' %}" class="pn-nav__link">Grimoire</a>
     </div>
 
-    <div class="hidden items-center gap-2 lg:flex">
+    <div class="hidden items-center gap-2.5 lg:flex">
+      <button
+        type="button"
+        id="theme-toggle"
+        data-theme-toggle
+        class="pn-theme-toggle"
+        aria-label="Ganti tema tampilan Siang atau Malam"
+        title="Ubah suasana Siang / Malam"
+      >
+        <span class="pn-theme-toggle__icon-wrap" aria-hidden="true">
+          <svg class="pn-theme-toggle__sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4" fill="currentColor" fill-opacity="0.25" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+          </svg>
+          <svg class="pn-theme-toggle__moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" fill-opacity="0.2" />
+          </svg>
+        </span>
+        <span class="pn-theme-label--dark">Malam</span>
+        <span class="pn-theme-label--light">Siang</span>
+      </button>
+
       {% if user.is_authenticated %}
         <span class="flex items-center gap-2 text-sm text-bone-200">
           <span class="pn-avatar" aria-hidden="true">{{ user.username|slice:":1" }}</span>{{ user.username }}
@@ -29,9 +50,31 @@
       {% endif %}
     </div>
 
-    <button type="button" id="nav-toggle" class="pn-btn pn-btn--secondary lg:hidden" aria-controls="nav-mobile" aria-expanded="false" aria-label="Buka menu">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
-    </button>
+    <div class="flex items-center gap-2 lg:hidden">
+      <button
+        type="button"
+        data-theme-toggle
+        class="pn-theme-toggle"
+        aria-label="Ganti tema tampilan Siang atau Malam"
+        title="Ubah suasana Siang / Malam"
+      >
+        <span class="pn-theme-toggle__icon-wrap" aria-hidden="true">
+          <svg class="pn-theme-toggle__sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4" fill="currentColor" fill-opacity="0.25" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+          </svg>
+          <svg class="pn-theme-toggle__moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" fill-opacity="0.2" />
+          </svg>
+        </span>
+        <span class="pn-theme-label--dark text-xs">Malam</span>
+        <span class="pn-theme-label--light text-xs">Siang</span>
+      </button>
+
+      <button type="button" id="nav-toggle" class="pn-btn pn-btn--secondary" aria-controls="nav-mobile" aria-expanded="false" aria-label="Buka menu">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+      </button>
+    </div>
   </div>
 
   <div id="nav-mobile" class="pn-container hidden flex-col gap-1 pb-4 lg:hidden">
@@ -61,10 +104,47 @@
 </nav>
 
 <script>
-  document.getElementById("nav-toggle").addEventListener("click", function () {
-    const menu = document.getElementById("nav-mobile");
-    const open = menu.classList.toggle("hidden") === false;
-    menu.classList.toggle("flex", open);
-    this.setAttribute("aria-expanded", open);
-  });
+  (function () {
+    const navToggle = document.getElementById("nav-toggle");
+    if (navToggle) {
+      navToggle.addEventListener("click", function () {
+        const menu = document.getElementById("nav-mobile");
+        const open = menu.classList.toggle("hidden") === false;
+        menu.classList.toggle("flex", open);
+        this.setAttribute("aria-expanded", open);
+      });
+    }
+
+    let shiftTimer = null;
+    const root = document.documentElement;
+    const toggleButtons = document.querySelectorAll("[data-theme-toggle]");
+
+    function syncThemeButtons(theme) {
+      toggleButtons.forEach((btn) => {
+        btn.setAttribute("aria-pressed", theme === "light" ? "true" : "false");
+      });
+    }
+
+    syncThemeButtons(root.getAttribute("data-theme") || "dark");
+
+    toggleButtons.forEach((btn) => {
+      btn.addEventListener("click", function () {
+        const current = root.getAttribute("data-theme") === "light" ? "light" : "dark";
+        const next = current === "light" ? "dark" : "light";
+
+        root.setAttribute("data-theme", next);
+        root.classList.add("pn-theme-shifting");
+        syncThemeButtons(next);
+
+        try {
+          localStorage.setItem("pn-theme", next);
+        } catch (e) {}
+
+        if (shiftTimer) clearTimeout(shiftTimer);
+        shiftTimer = setTimeout(function () {
+          root.classList.remove("pn-theme-shifting");
+        }, 1600);
+      });
+    });
+  })();
 </script>

@@ -13,6 +13,15 @@ class MainPageTest(TestCase):
         response = self.client.get(reverse('main:show_main'))
         self.assertTemplateUsed(response, 'main/home.html')
         self.assertTemplateUsed(response, 'base.html')
+        self.assertTemplateUsed(response, 'partials/ambient_backdrop.html')
+
+    def test_theme_toggle_and_ambient_backdrop_rendered(self):
+        response = self.client.get(reverse('main:show_main'))
+        self.assertContains(response, 'data-theme-toggle')
+        self.assertContains(response, 'pn-world-village')
+        self.assertContains(response, 'pn-world-graveyard')
+        self.assertContains(response, 'pn-celestial-sun')
+        self.assertContains(response, 'pn-celestial-moon')
 
     def test_main_page_lists_all_modules(self):
         response = self.client.get(reverse('main:show_main'))
