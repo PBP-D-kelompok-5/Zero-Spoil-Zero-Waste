@@ -111,39 +111,17 @@
         </div>
       </div>
 
-      <div class="pn-field">
-        <label for="reason" class="pn-label">Alasan Pembusukan atau Pembuangan</label>
-        <select id="reason" name="reason" class="pn-input" required>
-          {% for code, label in reasons %}
-            <option value="{{ code }}" {% if code == 'EXPIRED' %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-        <p class="pn-help">Pilih alasan paling dominan mengapa bahan ini gagal dikonsumsi.</p>
-      </div>
+      {% for error in form.non_field_errors %}<p class="pn-error mb-4">{{ error }}</p>{% endfor %}
+
+      {% include 'partials/form_field.html' with field=form.reason %}
 
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div class="pn-field">
-          <label for="estimated_loss" class="pn-label">Estimasi Kerugian (Rp)</label>
-          <input type="number" step="500" min="0" max="{{ loss_max }}" id="estimated_loss" name="estimated_loss" value="{{ values.estimated_loss|default:'' }}" placeholder="Contoh: 15000" class="pn-input tabular-nums" />
-          <p class="pn-help">Perkiraan harga beli bahan ini.</p>
-        </div>
-
-        <div class="pn-field">
-          <label for="weight_g" class="pn-label">Estimasi Berat (Gram)</label>
-          <input type="number" step="10" min="0" max="{{ weight_max }}" id="weight_g" name="weight_g" value="{{ values.weight_g|default:'' }}" placeholder="Contoh: 250" class="pn-input tabular-nums" />
-          <p class="pn-help">Kosongkan jika tidak tahu (akan diestimasi dari kuantitas).</p>
-        </div>
+        {% include 'partials/form_field.html' with field=form.estimated_loss %}
+        {% include 'partials/form_field.html' with field=form.weight_g %}
       </div>
 
-      <div class="pn-field">
-        <label for="disposed_at" class="pn-label">Tanggal Dibuang</label>
-        <input type="date" id="disposed_at" name="disposed_at" value="{{ today }}" class="pn-input" required />
-      </div>
-
-      <div class="pn-field">
-        <label for="notes" class="pn-label">Catatan Tambahan (Opsional)</label>
-        <textarea id="notes" name="notes" rows="2" placeholder="Contoh: Mengendap di bagian belakang kulkas..." class="pn-input">{{ pantry_item.notes }}</textarea>
-      </div>
+      {% include 'partials/form_field.html' with field=form.disposed_at %}
+      {% include 'partials/form_field.html' with field=form.notes %}
 
       <div class="mt-6 flex items-center justify-end gap-3 pt-5 border-t border-crypt-700/80">
         <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--ghost text-sm">

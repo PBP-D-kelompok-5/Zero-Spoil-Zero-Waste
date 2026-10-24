@@ -1,61 +1,62 @@
 {% extends 'base.html' %}
 
+{% block title %}{{ guide.title }} · Preservation Grimoire{% endblock title %}
+
 {% block content %}
-<div class="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md my-8">
-  <div class="border-b pb-4 mb-4">
-    <span class="text-xs font-semibold uppercase px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full">
-      {{ guide.get_category_display }}
-    </span>
-    <h1 class="text-3xl font-bold mt-3 text-gray-800">{{ guide.title }}</h1>
-    <p class="text-sm text-gray-500 mt-1">Metode: <span class="font-medium text-gray-700">{{ guide.preservation_method }}</span></p>
+<article class="pn-container max-w-3xl py-10 sm:py-14">
+  <a href="{% url 'preservation_grimoire:grimoire_list' %}" class="pn-link text-sm">← Kembali ke Grimoire</a>
+
+  <div class="mt-4 flex flex-wrap gap-2">
+    <span class="pn-badge pn-tone-frost">{{ guide.get_category_display }}</span>
+    <span class="pn-badge">{{ guide.preservation_method }}</span>
   </div>
+  <h1 class="pn-heading mt-3">{{ guide.title }}</h1>
+  <p class="mt-2 text-sm pn-muted">oleh {{ guide.author.username }} · diperbarui {{ guide.updated_at|date:"j M Y" }}</p>
 
-  <div class="prose max-w-none text-gray-700 leading-relaxed mb-6 space-y-4">
-    <div>
-      <h3 class="text-lg font-semibold text-gray-800">Langkah Pengawetan</h3>
-      <p>{{ guide.content|linebreaks }}</p>
-    </div>
+  <section class="pn-card mt-6">
+    <h2 class="font-display text-lg font-semibold">Langkah pengawetan</h2>
+    <div class="mt-3 space-y-3 text-bone-200">{{ guide.content|linebreaks }}</div>
+  </section>
 
-    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-      <h3 class="text-lg font-semibold text-gray-800 mb-2">Indikator Sensori (Smell Test)</h3>
-      <ul class="list-disc pl-5 space-y-1 text-sm">
-        <li><strong>Aroma:</strong> {{ guide.smell_indicator }}</li>
-        <li><strong>Tekstur:</strong> {{ guide.texture_indicator }}</li>
-        <li><strong>Visual:</strong> {{ guide.visual_indicator }}</li>
-      </ul>
-    </div>
-  </div>
+  <section class="pn-card pn-card--accent pn-tone-frost mt-4">
+    <h2 class="font-display text-lg font-semibold">Smell test: tanda masih layak vs sudah rusak</h2>
+    <dl class="mt-4 grid gap-4 sm:grid-cols-3">
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-widest text-frost-400">Aroma</dt>
+        <dd class="mt-1 text-sm text-bone-200">{{ guide.smell_indicator|linebreaksbr }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-widest text-frost-400">Tekstur</dt>
+        <dd class="mt-1 text-sm text-bone-200">{{ guide.texture_indicator|linebreaksbr }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-widest text-frost-400">Tampilan</dt>
+        <dd class="mt-1 text-sm text-bone-200">{{ guide.visual_indicator|linebreaksbr }}</dd>
+      </div>
+    </dl>
+  </section>
 
-  <div class="flex flex-wrap items-center gap-3 pt-4 border-t">
+  <div class="mt-6 flex flex-wrap items-center gap-2">
     {% if user.is_authenticated %}
-    <form method="post" action="{% url 'preservation_grimoire:toggle_upvote' guide.pk %}" data-grimoire-upvote>
-      {% csrf_token %}
-      <button type="submit" class="px-4 py-2 font-medium rounded-md border transition {% if has_upvoted %}bg-emerald-600 text-white border-emerald-600{% else %}text-emerald-700 border-emerald-600 hover:bg-emerald-50{% endif %}" aria-pressed="{{ has_upvoted|yesno:'true,false' }}">
-        👍 <span data-upvote-count>{{ guide.total_upvotes }}</span> Upvote
-      </button>
-    </form>
+      <form method="post" action="{% url 'preservation_grimoire:toggle_upvote' guide.pk %}" data-grimoire-upvote>
+        {% csrf_token %}
+        <button type="submit" class="pn-btn {% if has_upvoted %}pn-btn--primary{% else %}pn-btn--secondary{% endif %}" aria-pressed="{{ has_upvoted|yesno:'true,false' }}">
+          👍 <span data-upvote-count>{{ guide.total_upvotes }}</span> Upvote
+        </button>
+      </form>
     {% else %}
-    <a href="{% url 'main:login' %}?next={{ request.path|urlencode }}" class="px-4 py-2 font-medium rounded-md border text-emerald-700 border-emerald-600 hover:bg-emerald-50 transition">
-      👍 {{ guide.total_upvotes }} · Masuk untuk upvote
-    </a>
+      <a href="{% url 'main:login' %}?next={{ request.path|urlencode }}" class="pn-btn pn-btn--secondary">👍 {{ guide.total_upvotes }} · Masuk untuk upvote</a>
     {% endif %}
     {% if can_edit %}
-    <a href="{% url 'preservation_grimoire:grimoire_edit' guide.pk %}" 
-       class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-md transition">
-      Edit
-    </a>
-    <form method="post" action="{% url 'preservation_grimoire:grimoire_delete' guide.pk %}" onsubmit="return confirm('Hapus panduan ini?');">
-      {% csrf_token %}
-      <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md transition">Hapus</button>
-    </form>
+      <a href="{% url 'preservation_grimoire:grimoire_edit' guide.pk %}" class="pn-btn pn-btn--secondary">Ubah</a>
+      <form method="post" action="{% url 'preservation_grimoire:grimoire_delete' guide.pk %}" onsubmit="return confirm('Hapus panduan ini?');">
+        {% csrf_token %}
+        <button type="submit" class="pn-btn pn-btn--danger">Hapus</button>
+      </form>
     {% endif %}
-    <a href="{% url 'preservation_grimoire:grimoire_list' %}" 
-       class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-md transition">
-      Kembali
-    </a>
   </div>
-</div>
-{% endblock %}
+</article>
+{% endblock content %}
 
 {% block scripts %}
 <script>
@@ -82,8 +83,8 @@
       if (!response.ok) throw new Error();
       form.querySelector("[data-upvote-count]").textContent = data.total_upvotes;
       button.setAttribute("aria-pressed", data.upvoted ? "true" : "false");
-      ["bg-emerald-600", "text-white"].forEach((c) => button.classList.toggle(c, data.upvoted));
-      ["text-emerald-700", "hover:bg-emerald-50"].forEach((c) => button.classList.toggle(c, !data.upvoted));
+      button.classList.toggle("pn-btn--primary", data.upvoted);
+      button.classList.toggle("pn-btn--secondary", !data.upvoted);
     } catch (_) {
       form.submit();
     } finally {
