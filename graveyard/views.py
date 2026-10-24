@@ -16,6 +16,7 @@ from django.contrib import messages
 from django.db.models import Count, Q, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
@@ -166,16 +167,6 @@ def graveyard_list(request):
     analytics = calculate_analytics(all_user_items)
     wrapped_slides = generate_haunting_wrapped(all_user_items, analytics)
 
-    # Jika meminta format JSON atau AJAX
-    if is_ajax(request):
-        return JsonResponse({
-            'ok': True,
-            'count': user_items.count(),
-            'analytics': analytics,
-            'wrapped': wrapped_slides,
-            'items': [item.to_dict() for item in user_items],
-        })
-
     context = {
         'items': user_items,
         'analytics': analytics,
@@ -186,6 +177,19 @@ def graveyard_list(request):
         'selected_reason': reason_filter,
         'search_query': query,
     }
+
+    # Jika meminta format JSON atau AJAX
+    if is_ajax(request):
+        html = render_to_string('graveyard/partials/item_list.html', context, request=request)
+        return JsonResponse({
+            'ok': True,
+            'count': user_items.count(),
+            'html': html,
+            'analytics': analytics,
+            'wrapped': wrapped_slides,
+            'items': [item.to_dict() for item in user_items],
+        })
+
     return render(request, 'graveyard/graveyard_list.html', context)
 
 

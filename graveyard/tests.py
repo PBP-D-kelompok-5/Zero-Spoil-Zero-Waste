@@ -1030,3 +1030,47 @@ class GraveyardCRUDViewsTest(TestCase):
         ajax = self.client.post(url, {'name': ''}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
         self.assertEqual(ajax.status_code, 400)
         self.assertFalse(ajax.json()['ok'])
+    def test_graveyard_list_ajax_search_and_filter(self):
+        """Memvalidasi pemfilteran live AJAX mengembalikan partial html dan count yang terfilter."""
+        self.client.login(username='adam_crud', password=self.password)
+        GraveyardItem.objects.create(
+            user=self.user,
+            name='Bayam Layu',
+            category=Category.VEG,
+            reason=DisposalReason.FORGOTTEN,
+            estimated_loss=Decimal('5000.00'),
+        )
+        GraveyardItem.objects.create(
+            user=self.user,
+            name='Daging Sapi Busuk',
+            category=Category.MEAT,
+            reason=DisposalReason.EXPIRED,
+            estimated_loss=Decimal('50000.00'),
+        )
+
+        # Cari "Bayam" via AJAX
+        response = self.client.get(
+            reverse('graveyard:graveyard_list'),
+            {'q': 'Bayam'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['ok'])
+        self.assertEqual(data['count'], 1)
+        self.assertIn('html', data)
+        self.assertIn('Bayam Layu', data['html'])
+        self.assertNotIn('Daging Sapi Busuk', data['html'])
+
+        # Filter Kategori "MEAT" via AJAX
+        resp_meat = self.client.get(
+            reverse('graveyard:graveyard_list'),
+            {'category': Category.MEAT},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(resp_meat.status_code, 200)
+        data_meat = resp_meat.json()
+        self.assertEqual(data_meat['count'], 1)
+        self.assertIn('Daging Sapi Busuk', data_meat['html'])
+        self.assertNotIn('Bayam Layu', data_meat['html'])
+
