@@ -8,6 +8,11 @@ db.sqlite3
 __pycache__/
 *.pyc
 
+# Test coverage
+.coverage
+.coverage.*
+htmlcov/
+
 # OS & IDE Files
 .DS_Store
 .vscode/*

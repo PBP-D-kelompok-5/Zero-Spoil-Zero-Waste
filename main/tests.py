@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
-from django.urls import reverse
+from django.urls import resolve, reverse
 
 
 class MainPageTest(TestCase):
@@ -17,6 +17,28 @@ class MainPageTest(TestCase):
         response = self.client.get(reverse('main:show_main'))
         for name in ['Pantry Death Clock', 'Recipe Alchemist', 'The Dead Drop', 'The Graveyard', 'Preservation Grimoire']:
             self.assertContains(response, name)
+
+    def test_module_cards_link_to_live_modules(self):
+        response = self.client.get(reverse('main:show_main'))
+        for url_name in [
+            'death_clock:pantry_list',
+            'recipe_alchemist:recipe_list',
+            'graveyard:graveyard_list',
+            'preservation_grimoire:grimoire_list',
+        ]:
+            self.assertContains(response, f'href="{reverse(url_name)}"')
+
+    def test_only_unfinished_module_is_coming_soon(self):
+        response = self.client.get(reverse('main:show_main'))
+        self.assertContains(response, 'Segera hadir', count=1)
+
+    def test_navbar_grimoire_links_to_module(self):
+        response = self.client.get(reverse('main:show_main'))
+        self.assertNotContains(response, '#grimoire"')
+        self.assertContains(response, f'href="{reverse("preservation_grimoire:grimoire_list")}" class="pn-nav__link"', count=2)
+
+    def test_grimoire_url_served_by_grimoire_module(self):
+        self.assertEqual(resolve('/grimoire/').view_name, 'preservation_grimoire:grimoire_list')
 
     def test_nonexistent_page(self):
         response = self.client.get('/halaman-yang-tidak-ada/')
@@ -75,3 +97,16 @@ class AuthTest(TestCase):
         response = self.client.get(reverse('main:show_main'))
         self.assertContains(response, 'zombie')
         self.assertContains(response, 'Keluar')
+
+    def test_login_follows_internal_next(self):
+        target = reverse('death_clock:pantry_list')
+        response = self.client.post(reverse('main:login'), {
+            'username': 'zombie', 'password': self.password, 'next': target,
+        })
+        self.assertRedirects(response, target, fetch_redirect_response=False)
+
+    def test_logged_in_user_skips_login_and_register(self):
+        self.client.force_login(self.user)
+        for url_name in ['main:login', 'main:register']:
+            response = self.client.get(reverse(url_name))
+            self.assertRedirects(response, reverse('main:show_main'))

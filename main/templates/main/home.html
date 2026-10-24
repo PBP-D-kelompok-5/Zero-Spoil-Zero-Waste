@@ -59,9 +59,11 @@
         <div class="flex items-center justify-between gap-3">
           <span class="text-xs font-semibold uppercase tracking-widest pn-muted">Modul {{ forloop.counter }}</span>
           {% if module.slug == 'grimoire' %}
-            <a href="{% url 'main:grimoire' %}" class="pn-badge pn-tone-{{ module.tone }}">Jelajahi panduan →</a>
+            <a href="{% url 'preservation_grimoire:grimoire_list' %}" class="pn-badge pn-tone-{{ module.tone }}">Jelajahi panduan →</a>
           {% elif module.slug == 'death-clock' %}
             <a href="{% url 'death_clock:pantry_list' %}" class="pn-badge pn-tone-{{ module.tone }}">Buka Death Clock →</a>
+          {% elif module.slug == 'recipe-alchemist' %}
+            <a href="{% url 'recipe_alchemist:recipe_list' %}" class="pn-badge pn-tone-{{ module.tone }}">Buka Alchemist →</a>
           {% elif module.slug == 'graveyard' %}
             <a href="{% url 'graveyard:graveyard_list' %}" class="pn-badge pn-tone-{{ module.tone }}">Buka Graveyard →</a>
           {% else %}
