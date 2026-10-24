@@ -6,11 +6,28 @@ tailwind.config = {
   theme: {
     extend: {
       colors: {
-        crypt: { 950: pnColor("crypt-950"), 900: pnColor("crypt-900"), 800: pnColor("crypt-800"), 700: pnColor("crypt-700") },
-        bone: { 50: pnColor("bone-50"), 200: pnColor("bone-200"), 400: pnColor("bone-400") },
+        crypt: {
+          950: pnColor("crypt-950"),
+          900: pnColor("crypt-900"),
+          800: pnColor("crypt-800"),
+          700: pnColor("crypt-700"),
+          600: pnColor("crypt-700"),
+        },
+        bone: {
+          50: pnColor("bone-50"),
+          100: pnColor("bone-50"),
+          200: pnColor("bone-200"),
+          300: pnColor("bone-200"),
+          400: pnColor("bone-400"),
+        },
         ecto: { 300: pnColor("ecto-300"), 400: pnColor("ecto-400") },
         ember: { 400: pnColor("ember-400") },
-        blood: { 400: pnColor("blood-400") },
+        blood: {
+          400: pnColor("blood-400"),
+          500: pnColor("blood-400"),
+          600: pnColor("blood-400"),
+          950: pnColor("crypt-950"),
+        },
         hex: { 400: pnColor("hex-400") },
         frost: { 400: pnColor("frost-400") },
       },
