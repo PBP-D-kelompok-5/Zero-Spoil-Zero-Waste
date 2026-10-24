@@ -19,7 +19,7 @@
 | :--- | :--- | :--- |
 | **Michael Evan Putra Nugroho** | 2506616674 | **Modul 1:** Pantry Death Clock (Manajemen Inventaris Bahan Makanan Pribadi) |
 | **Nuno Mikael Nugroho** | 2506624865 | **Modul 2:** Recipe Alchemist (Penyelamat Resep & Integrasi Spoonacular API) |
-| **Joshua Carnsyn Suyanto Sidik** | 2506593821 | **Modul 3:** The Dead Drop (Platform Berbagi Makanan Lokal & OpenStreetMap) |
+| **Joshua Carnsyn Suyanto Sidik** | 2506593821 | **Modul 3:** The Dead Drop (Platform Berbagi Makanan Lokal & OpenStreetMap API) |
 | **Adam Wahyu Syaputra** | 2506534964 | **Modul 4:** The Graveyard & Waste Analytics (Pencatatan Limbah & Analitik Dampak) |
 | **Muhammad Syarifudin** | 2506657112 | **Modul 5:** Preservation Grimoire & Smell Test (Wiki Pengawetan & Uji Kelayakan Pangan) |
 
@@ -134,14 +134,14 @@ Setiap modul dikembangkan secara independen oleh satu anggota kelompok dan memen
 * **Deployment:** PWS Fasilkom UI, Gunicorn + WhiteNoise, CI/CD lewat GitHub Actions.
 
 ```
-PantryNecromancer/   # settings & URL utama
-main/                # landing page, autentikasi, alur login bersama (main/auth.py)
-death_clock/         # Modul 1
-recipe_alchemist/    # Modul 2
-graveyard/           # Modul 4
+PantryNecromancer/      # settings & URL utama
+main/                   # landing page, autentikasi, alur login bersama
+death_clock/            # Modul 1
+recipe_alchemist/       # Modul 2
+graveyard/              # Modul 4
 preservation_grimoire/  # Modul 5
-templates/           # base.html, partials/ (header, footer, messages, form_field), 404/500, template per modul
-static/              # css/global.css, js/tailwind.config.js, aset per modul
+templates/              # base.html, partials/ (header, footer, messages, form_field), 404/500, template per modul
+static/                 # css/global.css, js/tailwind.config.js, aset per modul
 ```
 
 ---
@@ -216,7 +216,7 @@ Semua modul memakai aturan yang sama (`main/auth.py`):
 
 ---
 
-## 🤖 Pengungkapan Penggunaan AI
+## 🤖 Penggunaan AI
 
 Kami menggunakan alat AI selama pengembangan. Setiap anggota bertanggung jawab memahami, menguji, dan dapat menjelaskan seluruh kode di modulnya, termasuk bagian yang dibuat dengan bantuan AI.
 
