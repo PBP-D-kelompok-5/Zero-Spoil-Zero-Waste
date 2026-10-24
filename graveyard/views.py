@@ -32,9 +32,25 @@ def parse_decimal_safe(value, default=Decimal('0.00')):
         return default
     try:
         parsed = Decimal(str(value).strip().replace(',', '.'))
+        if not parsed.is_finite():  # 'NaN', 'Infinity'
+            return default
         return max(Decimal('0.00'), parsed)
     except (InvalidOperation, ValueError, TypeError):
         return default
+
+
+def field_max(field_name):
+    """Nilai terbesar yang muat di DecimalField model (mis. max_digits=12, decimal_places=2 -> 9999999999.99)."""
+    field = GraveyardItem._meta.get_field(field_name)
+    whole = field.max_digits - field.decimal_places
+    return Decimal('9' * whole + '.' + '9' * field.decimal_places)
+
+
+# Batas input angka di form "kubur": melebihi ini akan membuat database galat (500).
+AMOUNT_LIMITS = {
+    'estimated_loss': ('Estimasi kerugian', field_max('estimated_loss')),
+    'weight_g': ('Estimasi berat', field_max('weight_g')),
+}
 
 
 def parse_date_safe(value, default=None):
@@ -205,6 +221,18 @@ def move_from_death_clock(request, pantry_item_id):
         estimated_loss = parse_decimal_safe(request.POST.get('estimated_loss'))
         disposed_at = parse_date_safe(request.POST.get('disposed_at'))
 
+        errors = [
+            f'{label} terlalu besar (maksimal {int(maximum):,}).'.replace(',', '.')
+            for name, (label, maximum) in AMOUNT_LIMITS.items()
+            if {'estimated_loss': estimated_loss, 'weight_g': weight_g}[name] > maximum
+        ]
+        if errors:
+            detail = ' '.join(errors)
+            if is_ajax(request):
+                return JsonResponse({'ok': False, 'detail': detail}, status=400)
+            messages.error(request, detail)
+            return render(request, 'graveyard/move_form.html', move_form_context(pantry_item, request.POST), status=400)
+
         # Buat catatan di Graveyard
         graveyard_item = GraveyardItem.objects.create(
             user=request.user,
@@ -237,12 +265,19 @@ def move_from_death_clock(request, pantry_item_id):
         return redirect(safe_next_url(request, reverse('graveyard:graveyard_list')))
 
     # Permintaan GET: Menampilkan formulir konfirmasi pemindahan
-    context = {
+    return render(request, 'graveyard/move_form.html', move_form_context(pantry_item))
+
+
+def move_form_context(pantry_item, values=None):
+    """Konteks form kubur; ``values`` (POST) dipakai agar isian tidak hilang saat ada galat."""
+    return {
         'pantry_item': pantry_item,
         'reasons': DisposalReason.choices,
         'today': timezone.localdate().isoformat(),
+        'values': values or {},
+        'loss_max': AMOUNT_LIMITS['estimated_loss'][1],
+        'weight_max': AMOUNT_LIMITS['weight_g'][1],
     }
-    return render(request, 'graveyard/move_form.html', context)
 
 
 @require_POST

@@ -484,6 +484,58 @@ class GraveyardViewTest(TestCase):
         )
         self.assertRedirects(response, self.list_url, fetch_redirect_response=False)
 
+    def _fresh_pantry_item(self):
+        return PantryItem.objects.create(
+            user=self.user,
+            name='Tempe',
+            category=Category.MEAT,
+            quantity=1,
+            unit=Unit.PIECE,
+            storage=Storage.FRIDGE,
+            purchase_date=self.today - timedelta(days=5),
+            expiry_date=self.today - timedelta(days=1),
+        )
+
+    def test_move_rejects_amount_too_large_for_database(self):
+        """Angka melebihi kolom database ditolak dengan pesan, bukan disimpan lalu bikin 500."""
+        item = self._fresh_pantry_item()
+        url = reverse('graveyard:move_from_death_clock', args=[item.pk])
+        self.client.login(username='adam_necro', password=self.password)
+
+        response = self.client.post(url, {'reason': 'EXPIRED', 'estimated_loss': '99999999999999', 'weight_g': '250'})
+        self.assertEqual(response.status_code, 400)
+        self.assertTemplateUsed(response, 'graveyard/move_form.html')
+        self.assertContains(response, 'Estimasi kerugian terlalu besar', status_code=400)
+        self.assertContains(response, 'value="250"', status_code=400)  # isian lain tidak hilang
+
+        ajax = self.client.post(url, {'weight_g': '1000000000'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(ajax.status_code, 400)
+        self.assertIn('Estimasi berat terlalu besar', ajax.json()['detail'])
+
+        self.assertFalse(GraveyardItem.objects.filter(user=self.user).exists())
+        self.assertTrue(PantryItem.objects.filter(pk=item.pk).exists())
+        self.assertEqual(self.client.get(self.list_url).status_code, 200)
+
+    def test_move_accepts_largest_amount_that_fits(self):
+        item = self._fresh_pantry_item()
+        self.client.login(username='adam_necro', password=self.password)
+        self.client.post(
+            reverse('graveyard:move_from_death_clock', args=[item.pk]),
+            {'reason': 'EXPIRED', 'estimated_loss': '9999999999.99', 'weight_g': '99999999.99'},
+        )
+        self.assertEqual(GraveyardItem.objects.get(user=self.user).estimated_loss, Decimal('9999999999.99'))
+        self.assertEqual(self.client.get(self.list_url).status_code, 200)
+
+    def test_move_treats_nan_and_infinity_as_empty(self):
+        item = self._fresh_pantry_item()
+        self.client.login(username='adam_necro', password=self.password)
+        self.client.post(
+            reverse('graveyard:move_from_death_clock', args=[item.pk]),
+            {'reason': 'EXPIRED', 'estimated_loss': 'NaN', 'weight_g': 'Infinity'},
+        )
+        buried = GraveyardItem.objects.get(user=self.user)
+        self.assertEqual((buried.estimated_loss, buried.weight_g), (Decimal('0.00'), Decimal('0.00')))
+
     def test_move_from_death_clock_other_user_item_404(self):
         """Memastikan pengguna tidak dapat memindahkan bahan milik orang lain (404 isolation)."""
         self.client.login(username='adam_necro', password=self.password)
