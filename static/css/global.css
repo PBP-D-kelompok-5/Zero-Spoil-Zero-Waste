@@ -68,6 +68,7 @@ html[data-theme="light"] {
 /* ---------- Dasar ---------- */
 .pn-body {
   position: relative;
+  isolation: isolate;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -252,7 +253,7 @@ html[data-theme="light"] .pn-theme-label--dark { display: none; }
 .pn-ambient {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   overflow: hidden;
   user-select: none;
