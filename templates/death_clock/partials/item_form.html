@@ -1,0 +1,44 @@
+{% comment %}
+  Form tambah/ubah/tambah massal. Dipakai di modal (AJAX) dan di halaman penuh (tanpa JavaScript).
+  Konteks: form, action, submit_label, is_bulk (opsional).
+{% endcomment %}
+<form method="post" action="{{ action }}" class="pn-form" data-dc-form novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+    <div class="pn-alert pn-tone-blood mb-5" role="alert">
+      {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
+  {% endif %}
+
+  {% if is_bulk %}
+    {% include 'partials/form_field.html' with field=form.names %}
+    <div class="grid gap-x-4 sm:grid-cols-2">
+      {% include 'partials/form_field.html' with field=form.category %}
+      {% include 'partials/form_field.html' with field=form.storage %}
+    </div>
+    <div class="grid gap-x-4 sm:grid-cols-2">
+      {% include 'partials/form_field.html' with field=form.purchase_date %}
+      {% include 'partials/form_field.html' with field=form.expiry_date %}
+    </div>
+  {% else %}
+    {% include 'partials/form_field.html' with field=form.name %}
+    <div class="grid gap-x-4 sm:grid-cols-2">
+      {% include 'partials/form_field.html' with field=form.category %}
+      {% include 'partials/form_field.html' with field=form.storage %}
+    </div>
+    <div class="grid grid-cols-2 gap-x-4">
+      {% include 'partials/form_field.html' with field=form.quantity %}
+      {% include 'partials/form_field.html' with field=form.unit %}
+    </div>
+    <div class="grid gap-x-4 sm:grid-cols-2">
+      {% include 'partials/form_field.html' with field=form.purchase_date %}
+      {% include 'partials/form_field.html' with field=form.expiry_date %}
+    </div>
+    {% include 'partials/form_field.html' with field=form.notes %}
+  {% endif %}
+
+  <div class="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+    <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--ghost" data-dc-close>Batal</a>
+    <button type="submit" class="pn-btn pn-btn--primary">{{ submit_label }}</button>
+  </div>
+</form>

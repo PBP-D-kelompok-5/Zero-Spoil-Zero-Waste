@@ -13,3 +13,7 @@ __pycache__/
 .vscode/*
 !.vscode/settings.json
 .idea/
+
+# Local Agent Configurations
+.agents/
+skills-lock.json
