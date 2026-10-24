@@ -9,10 +9,8 @@ Menyediakan:
 """
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from functools import wraps
 
 from django.contrib import messages
-from django.contrib.auth.views import redirect_to_login
 from django.db.models import Count, Q, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -23,45 +21,36 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from death_clock.models import PantryItem
 from graveyard.models import Category, DisposalReason, GraveyardItem
 from graveyard.wrapped import generate_haunting_wrapped
+from main.auth import guest_page, is_ajax, login_required_ajax, safe_next_url
 
 
-# ---------- Helper & Autentikasi ----------
-def is_ajax(request):
-    """Mendeteksi apakah permintaan berasal dari AJAX (X-Requested-With) atau meminta JSON."""
-    return (
-        request.headers.get('x-requested-with') == 'XMLHttpRequest'
-        or request.GET.get('format') == 'json'
-    )
-
-
-def login_required_ajax(view):
-    """Memastikan pengguna terautentikasi. Permintaan AJAX/JSON merespons 401 JSON, bukan 302 redirect."""
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return view(request, *args, **kwargs)
-        if is_ajax(request) or request.path.endswith('/json/'):
-            return JsonResponse(
-                {
-                    'ok': False,
-                    'detail': 'Silakan masuk terlebih dahulu untuk mengakses Graveyard.',
-                    'login_url': reverse('main:login'),
-                },
-                status=401,
-            )
-        return redirect_to_login(request.get_full_path())
-    return wrapper
-
-
+# ---------- Helper ----------
+# Alur autentikasi (login_required_ajax, guest_page) ada di main/auth.py dan dipakai semua modul.
 def parse_decimal_safe(value, default=Decimal('0.00')):
     """Mengonversi nilai input ke Decimal dengan aman tanpa throw exception."""
     if value is None or str(value).strip() == '':
         return default
     try:
         parsed = Decimal(str(value).strip().replace(',', '.'))
+        if not parsed.is_finite():  # 'NaN', 'Infinity'
+            return default
         return max(Decimal('0.00'), parsed)
     except (InvalidOperation, ValueError, TypeError):
         return default
+
+
+def field_max(field_name):
+    """Nilai terbesar yang muat di DecimalField model (mis. max_digits=12, decimal_places=2 -> 9999999999.99)."""
+    field = GraveyardItem._meta.get_field(field_name)
+    whole = field.max_digits - field.decimal_places
+    return Decimal('9' * whole + '.' + '9' * field.decimal_places)
+
+
+# Batas input angka di form "kubur": melebihi ini akan membuat database galat (500).
+AMOUNT_LIMITS = {
+    'estimated_loss': ('Estimasi kerugian', field_max('estimated_loss')),
+    'weight_g': ('Estimasi berat', field_max('weight_g')),
+}
 
 
 def parse_date_safe(value, default=None):
@@ -150,7 +139,7 @@ def calculate_analytics(user_items):
 
 # ---------- Views ----------
 @require_GET
-@login_required_ajax
+@guest_page('graveyard/guest.html')  # riwayat pembuangan privat
 def graveyard_list(request):
     """Endpoint 1: Menampilkan daftar item terbuang dan ringkasan agregasi analitik."""
     user_items = GraveyardItem.objects.filter(user=request.user)
@@ -232,6 +221,18 @@ def move_from_death_clock(request, pantry_item_id):
         estimated_loss = parse_decimal_safe(request.POST.get('estimated_loss'))
         disposed_at = parse_date_safe(request.POST.get('disposed_at'))
 
+        errors = [
+            f'{label} terlalu besar (maksimal {int(maximum):,}).'.replace(',', '.')
+            for name, (label, maximum) in AMOUNT_LIMITS.items()
+            if {'estimated_loss': estimated_loss, 'weight_g': weight_g}[name] > maximum
+        ]
+        if errors:
+            detail = ' '.join(errors)
+            if is_ajax(request):
+                return JsonResponse({'ok': False, 'detail': detail}, status=400)
+            messages.error(request, detail)
+            return render(request, 'graveyard/move_form.html', move_form_context(pantry_item, request.POST), status=400)
+
         # Buat catatan di Graveyard
         graveyard_item = GraveyardItem.objects.create(
             user=request.user,
@@ -261,16 +262,22 @@ def move_from_death_clock(request, pantry_item_id):
             }, status=201)
 
         messages.warning(request, success_message)
-        next_url = request.POST.get('next') or reverse('graveyard:graveyard_list')
-        return redirect(next_url)
+        return redirect(safe_next_url(request, reverse('graveyard:graveyard_list')))
 
     # Permintaan GET: Menampilkan formulir konfirmasi pemindahan
-    context = {
+    return render(request, 'graveyard/move_form.html', move_form_context(pantry_item))
+
+
+def move_form_context(pantry_item, values=None):
+    """Konteks form kubur; ``values`` (POST) dipakai agar isian tidak hilang saat ada galat."""
+    return {
         'pantry_item': pantry_item,
         'reasons': DisposalReason.choices,
         'today': timezone.localdate().isoformat(),
+        'values': values or {},
+        'loss_max': AMOUNT_LIMITS['estimated_loss'][1],
+        'weight_max': AMOUNT_LIMITS['weight_g'][1],
     }
-    return render(request, 'graveyard/move_form.html', context)
 
 
 @require_POST

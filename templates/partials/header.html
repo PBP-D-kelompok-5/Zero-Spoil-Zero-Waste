@@ -11,7 +11,7 @@
       <a href="{% url 'recipe_alchemist:recipe_list' %}" class="pn-nav__link">Alchemist</a>
       <a href="{% url 'main:show_main' %}#dead-drop" class="pn-nav__link">Dead Drop</a>
       <a href="{% url 'graveyard:graveyard_list' %}" class="pn-nav__link">Graveyard</a>
-      <a href="{% url 'main:show_main' %}#grimoire" class="pn-nav__link">Grimoire</a>
+      <a href="{% url 'preservation_grimoire:grimoire_list' %}" class="pn-nav__link">Grimoire</a>
     </div>
 
     <div class="hidden items-center gap-2 lg:flex">
@@ -39,7 +39,7 @@
     <a href="{% url 'recipe_alchemist:recipe_list' %}" class="pn-nav__link">Recipe Alchemist</a>
     <a href="{% url 'main:show_main' %}#dead-drop" class="pn-nav__link">The Dead Drop</a>
     <a href="{% url 'graveyard:graveyard_list' %}" class="pn-nav__link">The Graveyard</a>
-    <a href="{% url 'main:show_main' %}#grimoire" class="pn-nav__link">Preservation Grimoire</a>
+    <a href="{% url 'preservation_grimoire:grimoire_list' %}" class="pn-nav__link">Preservation Grimoire</a>
     <hr class="my-2 border-crypt-700" />
     {% if user.is_authenticated %}
       <div class="flex items-center justify-between gap-3 px-3">

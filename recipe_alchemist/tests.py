@@ -372,8 +372,21 @@ class SearchViewTests(ViewTestCase):
 
 
 class CollectionViewTests(ViewTestCase):
-    def test_my_recipes_requires_login(self):
-        self.assertRequiresLogin(self.client.get(reverse('recipe_alchemist:my_recipes')))
+    def test_my_recipes_shows_guest_page(self):
+        url = reverse('recipe_alchemist:my_recipes')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'recipe_alchemist/guest.html')
+        self.assertContains(response, f"{reverse('main:login')}?next={url}")
+
+    def test_my_recipes_guest_ajax_gets_401(self):
+        response = self.client.get(reverse('recipe_alchemist:my_recipes'), **AJAX)
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()['login_url'], reverse('main:login'))
+
+    def test_community_shows_login_cta_to_guests(self):
+        response = self.client.get(reverse('recipe_alchemist:community_recipes'))
+        self.assertContains(response, 'Masuk untuk menulis resep')
 
     def test_my_recipes_lists_only_own_recipes(self):
         mine = self.make_recipe(title='Mine')
@@ -445,6 +458,9 @@ class CreateViewTests(ViewTestCase):
         self.assertRequiresLogin(self.client.get(self.url))
         self.assertRequiresLogin(self.client.post(self.url, {'title': 'A', 'ingredients': 'x'}))
         self.assertEqual(Recipe.objects.count(), 0)
+
+    def test_guest_ajax_gets_401(self):
+        self.assertEqual(self.client.post(self.url, {'title': 'A', 'ingredients': 'x'}, **AJAX).status_code, 401)
 
     def test_form_page_loads(self):
         self.client.force_login(self.user)
@@ -607,4 +623,4 @@ class SaveApiRecipeViewTests(ViewTestCase):
     def test_plain_post_with_invalid_data_redirects_back_to_search(self):
         self.client.force_login(self.user)
         response = self.client.post(self.url, {'title': 'No id', 'ingredients': 'x'})
-        self.assertRedirects(response, reverse('recipe_alchemist:recipe_list'), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse('recipe_alchemist:recipe_list'), fetch_redirect_response=False)

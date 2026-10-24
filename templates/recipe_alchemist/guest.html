@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Koleksi saya · Recipe Alchemist{% endblock title %}
+
+{% block content %}
+<section class="pn-container py-12 md:py-16">
+  <div class="grid items-center gap-10 lg:grid-cols-[1.1fr_1fr]">
+    <div class="flex flex-col gap-6">
+      <span class="pn-badge pn-tone-hex self-start">Modul 2 · Recipe Alchemist</span>
+      <h1 class="pn-display">Sisa bahan, <span class="italic text-hex-400">resep baru.</span></h1>
+      <p class="pn-lead">
+        Koleksi resep berisi resep buatanmu dan resep Spoonacular yang kamu simpan. Koleksi ini bersifat privat,
+        jadi masuk dulu untuk mulai menyimpan. Pencarian resep dan resep komunitas tetap bisa dibuka tanpa akun.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <a href="{% url 'main:login' %}?next={{ request.path|urlencode }}" class="pn-btn pn-btn--primary">Masuk untuk mulai</a>
+        <a href="{% url 'main:register' %}?next={{ request.path|urlencode }}" class="pn-btn pn-btn--secondary">Buat akun</a>
+      </div>
+    </div>
+
+    <div class="pn-card flex flex-col gap-4">
+      <p class="text-xs font-semibold uppercase tracking-widest text-hex-400">Tanpa akun pun kamu bisa</p>
+      <a href="{% url 'recipe_alchemist:recipe_list' %}" class="pn-btn pn-btn--secondary">Cari resep dari sisa bahan</a>
+      <a href="{% url 'recipe_alchemist:community_recipes' %}" class="pn-btn pn-btn--ghost">Lihat resep komunitas</a>
+    </div>
+  </div>
+</section>
+{% endblock content %}

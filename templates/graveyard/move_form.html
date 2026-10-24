@@ -124,13 +124,13 @@
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div class="pn-field">
           <label for="estimated_loss" class="pn-label">Estimasi Kerugian (Rp)</label>
-          <input type="number" step="500" min="0" id="estimated_loss" name="estimated_loss" placeholder="Contoh: 15000" class="pn-input tabular-nums" />
+          <input type="number" step="500" min="0" max="{{ loss_max }}" id="estimated_loss" name="estimated_loss" value="{{ values.estimated_loss|default:'' }}" placeholder="Contoh: 15000" class="pn-input tabular-nums" />
           <p class="pn-help">Perkiraan harga beli bahan ini.</p>
         </div>
 
         <div class="pn-field">
           <label for="weight_g" class="pn-label">Estimasi Berat (Gram)</label>
-          <input type="number" step="10" min="0" id="weight_g" name="weight_g" placeholder="Contoh: 250" class="pn-input tabular-nums" />
+          <input type="number" step="10" min="0" max="{{ weight_max }}" id="weight_g" name="weight_g" value="{{ values.weight_g|default:'' }}" placeholder="Contoh: 250" class="pn-input tabular-nums" />
           <p class="pn-help">Kosongkan jika tidak tahu (akan diestimasi dari kuantitas).</p>
         </div>
       </div>

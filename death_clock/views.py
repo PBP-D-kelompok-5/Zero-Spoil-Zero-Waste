@@ -6,10 +6,7 @@ Setiap aksi bisa dipakai dua cara:
   static/death_clock/death_clock.js agar halaman tidak dimuat ulang.
 Endpoint /json/ mengembalikan data mentah untuk web service (Flutter nanti).
 """
-from functools import wraps
-
 from django.contrib import messages
-from django.contrib.auth.views import redirect_to_login
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -19,32 +16,13 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from death_clock.forms import BulkAddForm, FilterForm, PantryItemForm, QuantityForm
 from death_clock.models import CRITICAL_DAYS, STATUS_TONES, PantryItem, Status
+from main.auth import guest_page, is_ajax, login_required_ajax
 
 LIST_URL = 'death_clock:pantry_list'
 
 
 # ---------- Helper ----------
-def is_ajax(request):
-    return request.headers.get('x-requested-with') == 'XMLHttpRequest'
-
-
-def login_required_ajax(view):
-    """Seperti @login_required, tetapi permintaan AJAX/JSON mendapat 401 JSON, bukan redirect."""
-
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return view(request, *args, **kwargs)
-        if is_ajax(request) or request.path.startswith(reverse('death_clock:pantry_json')):
-            return JsonResponse(
-                {'ok': False, 'detail': 'Silakan masuk terlebih dahulu.', 'login_url': reverse('main:login')},
-                status=401,
-            )
-        return redirect_to_login(request.get_full_path())
-
-    return wrapper
-
-
+# Alur autentikasi (login_required_ajax, guest_page) ada di main/auth.py dan dipakai semua modul.
 def user_items(request):
     return PantryItem.objects.filter(user=request.user)
 
@@ -123,11 +101,8 @@ def form_response(request, form, template_context):
 
 # ---------- Read ----------
 @require_GET
+@guest_page('death_clock/guest.html', {'critical_days': CRITICAL_DAYS})  # inventaris privat
 def pantry_list(request):
-    if not request.user.is_authenticated:
-        # Tamu hanya melihat penjelasan modul; inventaris bersifat privat.
-        return render(request, 'death_clock/guest.html', {'critical_days': CRITICAL_DAYS})
-
     context = list_context(request)
     if is_ajax(request):
         html = render_to_string('death_clock/partials/item_list.html', context, request=request)
