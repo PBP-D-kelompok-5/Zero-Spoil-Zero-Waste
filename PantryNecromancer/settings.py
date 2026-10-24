@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+SPOONACULAR_API_KEY = os.getenv('SPOONACULAR_API_KEY')
+
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -48,6 +50,7 @@ INSTALLED_APPS = [
     'preservation_grimoire',
     'death_clock',
     'graveyard',
+    'recipe_alchemist',
     'main',
 ]
 

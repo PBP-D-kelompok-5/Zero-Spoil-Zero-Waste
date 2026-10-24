@@ -23,4 +23,5 @@ urlpatterns = [
     path('', include('main.urls')),
     path('death-clock/', include('death_clock.urls')),
     path('graveyard/', include('graveyard.urls')),
+    path('recipes/', include('recipe_alchemist.urls')),
 ]

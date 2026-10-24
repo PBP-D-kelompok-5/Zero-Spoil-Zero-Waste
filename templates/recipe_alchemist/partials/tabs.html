@@ -1,0 +1,5 @@
+<nav class="mt-6 flex flex-wrap gap-2" aria-label="Navigasi Recipe Alchemist">
+  <a href="{% url 'recipe_alchemist:recipe_list' %}" class="pn-btn pn-btn--sm {% if active == 'search' %}pn-btn--primary{% else %}pn-btn--secondary{% endif %}">Cari resep</a>
+  <a href="{% url 'recipe_alchemist:my_recipes' %}" class="pn-btn pn-btn--sm {% if active == 'mine' %}pn-btn--primary{% else %}pn-btn--secondary{% endif %}">Koleksi saya</a>
+  <a href="{% url 'recipe_alchemist:community_recipes' %}" class="pn-btn pn-btn--sm {% if active == 'community' %}pn-btn--primary{% else %}pn-btn--secondary{% endif %}">Komunitas</a>
+</nav>

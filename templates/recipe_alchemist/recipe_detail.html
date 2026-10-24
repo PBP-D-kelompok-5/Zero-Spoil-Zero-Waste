@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ recipe.title }} · Recipe Alchemist{% endblock title %}
+
+{% block content %}
+<article class="pn-container max-w-3xl py-10 sm:py-14">
+  <a href="{% if is_owner %}{% url 'recipe_alchemist:my_recipes' %}{% else %}{% url 'recipe_alchemist:community_recipes' %}{% endif %}" class="pn-link text-sm">← Kembali</a>
+
+  <h1 class="pn-heading mt-4">{{ recipe.title }}</h1>
+  <p class="mt-2 text-sm pn-muted">
+    {% if recipe.cook_time_minutes %}{{ recipe.cook_time_minutes }} menit · {% endif %}
+    {% if recipe.diet %}{{ recipe.diet|capfirst }} · {% endif %}oleh {{ recipe.user.username }}
+  </p>
+
+  {% if recipe.image_url %}<img src="{{ recipe.image_url }}" alt="{{ recipe.title }}" class="mt-6 w-full rounded-xl" />{% endif %}
+
+  <section class="pn-card mt-6">
+    <h2 class="font-display text-lg font-semibold">Bahan</h2>
+    <ul class="mt-3 list-disc pl-5">
+      {% for line in recipe.ingredient_list %}<li>{{ line }}</li>{% endfor %}
+    </ul>
+  </section>
+
+  <section class="pn-card mt-4">
+    <h2 class="font-display text-lg font-semibold">Langkah memasak</h2>
+    {% if recipe.instructions %}
+      <p class="mt-3">{{ recipe.instructions|linebreaksbr }}</p>
+    {% else %}
+      <p class="mt-3 pn-muted">Belum ada langkah.{% if recipe.source_url %} Lihat resep lengkap di <a class="pn-link" href="{{ recipe.source_url }}" target="_blank" rel="noopener noreferrer">sumber aslinya</a>.{% endif %}</p>
+    {% endif %}
+  </section>
+
+  {% if is_owner and recipe.notes %}
+    <section class="pn-card mt-4">
+      <h2 class="font-display text-lg font-semibold">Catatan pribadi</h2>
+      <p class="mt-3">{{ recipe.notes|linebreaksbr }}</p>
+    </section>
+  {% endif %}
+
+  {% if is_owner %}
+    <div class="mt-6 flex flex-wrap gap-2">
+      <a href="{% url 'recipe_alchemist:recipe_update' recipe.pk %}" class="pn-btn pn-btn--secondary">Ubah</a>
+      <form method="post" action="{% url 'recipe_alchemist:recipe_delete' recipe.pk %}" onsubmit="return confirm('Hapus resep ini?');">
+        {% csrf_token %}
+        <button type="submit" class="pn-btn pn-btn--danger">Hapus</button>
+      </form>
+    </div>
+  {% endif %}
+</article>
+{% endblock content %}

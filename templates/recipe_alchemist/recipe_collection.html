@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if scope == 'mine' %}Koleksi saya{% else %}Resep komunitas{% endif %} · Recipe Alchemist{% endblock title %}
+
+{% block content %}
+<div class="pn-container py-10 md:py-14">
+  <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div class="max-w-2xl">
+      <span class="pn-badge pn-tone-ecto mb-4">Modul 2 · Recipe Alchemist</span>
+      <h1 class="pn-heading">{% if scope == 'mine' %}Koleksi resepku{% else %}Resep dari komunitas{% endif %}</h1>
+    </div>
+    {% if user.is_authenticated %}
+      <a href="{% url 'recipe_alchemist:recipe_create' %}" class="pn-btn pn-btn--primary">+ Resep baru</a>
+    {% endif %}
+  </header>
+
+  {% include 'recipe_alchemist/partials/tabs.html' with active=scope %}
+
+  <form method="get" class="pn-form mt-6 flex max-w-xl gap-2" role="search">
+    <input type="search" name="q" value="{{ q }}" placeholder="Cari judul atau bahan…" />
+    <button class="pn-btn pn-btn--secondary" type="submit">Cari</button>
+  </form>
+
+  <section class="mt-8">
+    {% if recipes %}
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {% for recipe in recipes %}
+          <a href="{% url 'recipe_alchemist:recipe_detail' recipe.pk %}" class="pn-card pn-card--accent pn-tone-ecto flex flex-col gap-2 hover:border-bone-400">
+            <h2 class="font-display text-lg font-semibold">{{ recipe.title }}</h2>
+            <p class="text-xs pn-muted">
+              {% if recipe.cook_time_minutes %}{{ recipe.cook_time_minutes }} menit · {% endif %}{{ recipe.ingredient_list|length }} bahan
+              {% if scope == 'community' %}· oleh {{ recipe.user.username }}{% endif %}
+            </p>
+            <div class="mt-1 flex flex-wrap gap-2">
+              {% if recipe.source == 'SPOONACULAR' %}<span class="pn-badge pn-tone-frost">Spoonacular</span>{% endif %}
+              {% if scope == 'mine' %}
+                <span class="pn-badge {% if recipe.is_public %}pn-tone-ecto{% endif %}">{% if recipe.is_public %}Publik{% else %}Pribadi{% endif %}</span>
+              {% endif %}
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="pn-card pn-muted">
+        {% if scope == 'mine' %}Belum ada resep. Simpan hasil pencarian atau tulis resepmu sendiri.{% else %}Belum ada resep komunitas yang cocok.{% endif %}
+      </p>
+    {% endif %}
+  </section>
+</div>
+{% endblock content %}
