@@ -8,6 +8,7 @@
 * **Deployment (PWS):** https://michael-evan51-pantry-necromancer.pws.cs.ui.ac.id/
 * **Desain UI/UX (Figma):** [Tautan Prototipe Desain Figma]
 * **Repositori Git:** https://github.com/PBP-D-kelompok-5/Zero-Spoil-Zero-Waste
+* **Akun demo:** username `[isi]` · password `[isi]` — sudah berisi data Death Clock & Graveyard
 
 ---
 
@@ -104,3 +105,125 @@ Setiap modul dikembangkan secara independen oleh satu anggota kelompok dan memen
   * **Update:** Memperbarui konten panduan agar metode pengawetan lebih akurat.
   * **Delete:** Menghapus panduan yang dibuat oleh pengguna yang bersangkutan.
 * **Interaktivitas & Otentikasi:** Fitur *upvote* interaktif berbasis AJAX tanpa memuat ulang laman; pencarian dan pemfilteran instan berdasarkan kategori bahan dan metode pengawetan.
+
+---
+
+## 🌐 Public API & Sumber Data
+
+| Sumber | Dipakai oleh | Kegunaan | Dokumentasi |
+| :--- | :--- | :--- | :--- |
+| **Spoonacular Food API** | Recipe Alchemist | `GET /recipes/findByIngredients` untuk mencari resep dari sisa bahan, lalu `GET /recipes/informationBulk` untuk durasi memasak, diet, dan tautan sumber | https://spoonacular.com/food-api/docs |
+| **OpenStreetMap Nominatim** | The Dead Drop *(dalam pengerjaan)* | Geocoding alamat titik temu menjadi koordinat peta | https://nominatim.org/release-docs/latest/api/Overview/ |
+
+**Penanganan data eksternal (Spoonacular)**
+* Dipanggil dari server (`recipe_alchemist/services.py`), sehingga API key tidak pernah sampai ke browser.
+* Hasil disimpan di cache server selama 6 jam per kombinasi pencarian untuk menghemat kuota; respons galat tidak di-cache.
+* Timeout 15 detik. Galat jaringan, kuota habis, atau API key kosong ditampilkan sebagai pesan yang rapi, dan hasil dari koleksi lokal/komunitas tetap ditampilkan.
+
+**Data awal**
+* Death Clock: `python manage.py seed_death_clock <username> --count 50` membuat 50 bahan sintetis untuk satu akun, diambil dari katalog bahan dapur umum (kategori, satuan, tempat simpan, dan umur simpan kasar per bahan) dengan tanggal beli acak, sehingga status Stable/Critical/Flatlining tersebar realistis.
+* Recipe Alchemist: resep berasal dari Spoonacular dan dari resep yang ditulis pengguna.
+* `[isi: sumber data awal modul lain bila ada]`
+
+---
+
+## 🛠️ Teknologi & Struktur Proyek
+
+* **Backend:** Django 5 (pola Model–View–Template), PostgreSQL di produksi, SQLite di lokal.
+* **Frontend:** template Django + Tailwind CSS (CDN) + design system bersama di `static/css/global.css` (token warna, tombol, kartu, form, badge). Interaktivitas memakai `fetch` (AJAX).
+* **Deployment:** PWS Fasilkom UI, Gunicorn + WhiteNoise, CI/CD lewat GitHub Actions.
+
+```
+PantryNecromancer/   # settings & URL utama
+main/                # landing page, autentikasi, alur login bersama (main/auth.py)
+death_clock/         # Modul 1
+recipe_alchemist/    # Modul 2
+graveyard/           # Modul 4
+preservation_grimoire/  # Modul 5
+templates/           # base.html, partials/ (header, footer, messages, form_field), 404/500, template per modul
+static/              # css/global.css, js/tailwind.config.js, aset per modul
+```
+
+---
+
+## 💻 Menjalankan Secara Lokal
+
+Prasyarat: Python 3.12 atau lebih baru, Git.
+
+```bash
+git clone https://github.com/PBP-D-kelompok-5/Zero-Spoil-Zero-Waste.git
+cd Zero-Spoil-Zero-Waste
+
+python -m venv env
+# Windows: env\Scripts\activate    |    macOS/Linux: source env/bin/activate
+pip install -r requirements.txt
+
+# buat file .env (lihat tabel variabel di bawah), minimal:
+#   PRODUCTION=False
+#   SPOONACULAR_API_KEY=<key-kamu>
+
+python manage.py migrate
+python manage.py createsuperuser          # opsional, untuk /admin/
+python manage.py runserver
+```
+
+Buka http://127.0.0.1:8000/, daftar akun, lalu isi data contoh:
+
+```bash
+python manage.py seed_death_clock <username> --count 50
+```
+
+### Variabel lingkungan
+
+| Variabel | Lokal | Produksi (Environs PWS) | Keterangan |
+| :--- | :--- | :--- | :--- |
+| `PRODUCTION` | `False` | `True` | `True` = DEBUG mati, PostgreSQL, cookie hanya lewat HTTPS |
+| `SPOONACULAR_API_KEY` | opsional | wajib | Tanpa key, pencarian Spoonacular menampilkan pesan galat yang rapi |
+| `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | — | wajib | Koneksi PostgreSQL PWS |
+| `SCHEMA` | — | `tugas_kelompok` | Schema PostgreSQL |
+
+Jangan commit file `.env` / `.env.prod`; keduanya sudah ada di `.gitignore`.
+
+---
+
+## ✅ Testing
+
+```bash
+python manage.py test                       # seluruh unit test
+pip install coverage
+coverage run --source=. --omit="*/migrations/*,*/tests.py,*/tests/*,env/*" manage.py test
+coverage report
+```
+
+Setiap modul punya unit test untuk model, form, view (termasuk akses tanpa login, akses ke data milik pengguna lain, dan respons AJAX/JSON).
+
+---
+
+## 🚀 Deployment & CI/CD
+
+* Workflow `.github/workflows/deploy.yml` berjalan setiap ada push ke `main` dan meneruskan kode ke PWS (secret repositori `PWS_URL`).
+* Alur kerja tim: setiap fitur dikerjakan di branch sendiri → Pull Request → di-review anggota lain → merge ke `main` → deploy otomatis.
+* Pengaturan produksi dan lokal dipisahkan lewat variabel `PRODUCTION`.
+
+---
+
+## 🔐 Alur Autentikasi Bersama
+
+Semua modul memakai aturan yang sama (`main/auth.py`):
+* Halaman/aksi yang butuh login → diarahkan ke `/login/?next=<halaman asal>`; permintaan AJAX/JSON mendapat respons `401` berisi `login_url`.
+* Halaman daftar yang datanya privat (Death Clock, Graveyard, Koleksi resep) menampilkan halaman pengenalan modul untuk tamu.
+* Data milik pengguna lain dianggap tidak ada (`404`); aksi yang mengubah data hanya lewat `POST` dengan CSRF; parameter `next` hanya boleh mengarah ke situs ini.
+
+---
+
+## 🤖 Pengungkapan Penggunaan AI
+
+Kami menggunakan alat AI selama pengembangan. Setiap anggota bertanggung jawab memahami, menguji, dan dapat menjelaskan seluruh kode di modulnya, termasuk bagian yang dibuat dengan bantuan AI.
+
+| Anggota | Alat | Dipakai untuk | Strategi prompt | Batasan yang ditemui & perbaikan manual |
+| :--- | :--- | :--- | :--- | :--- |
+| Michael Evan Putra Nugroho | Claude (aplikasi Claude, mode Cowork) | Kerangka awal Django & design system v1, landing page + autentikasi, implementasi Modul Death Clock beserta test, audit progres & keamanan tim, penyeragaman alur autentikasi lintas modul (`main/auth.py`), perbaikan tampilan Grimoire, form "kubur" Graveyard, halaman 404/500, diagnosis galat deployment | Memberi spesifikasi tugas, palet & struktur folder yang diinginkan, batasan (Bahasa Indonesia, AI tidak boleh melakukan aksi Git), lalu meminta AI menjalankan test dan menunjukkan bukti sebelum perubahan diterapkan | AI sempat mengubah line ending file menjadi CRLF sehingga diff PR membengkak; usulan memindahkan `SECRET_KEY` dibatalkan sesuai arahan dosen; AI tidak dapat mengakses log PWS dan CDN Tailwind sehingga pengecekan dilakukan manual. Seluruh commit, review, dan konfigurasi PWS dilakukan sendiri. `[Evan: lengkapi/koreksi]` |
+| Nuno Mikael Nugroho | `[isi]` | `[isi]` | `[isi]` | `[isi]` |
+| Joshua Carnsyn Suyanto Sidik | `[isi]` | `[isi]` | `[isi]` | `[isi]` |
+| Adam Wahyu Syaputra | `[isi]` | `[isi]` | `[isi]` | `[isi]` |
+| Muhammad Syarifudin | `[isi]` | `[isi]` | `[isi]` | `[isi]` |

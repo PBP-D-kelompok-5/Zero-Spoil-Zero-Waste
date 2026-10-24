@@ -1,0 +1,32 @@
+{% load static %}
+{% comment %}
+  Sengaja berdiri sendiri (tidak extends base.html): halaman 500 dirender tanpa request/context,
+  dan harus tetap tampil walaupun galatnya berasal dari base.html atau partial lain.
+{% endcomment %}
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terjadi galat · Pantry Necromancer</title>
+    <link rel="icon" href="{% static 'img/logo-mark.svg' %}" type="image/svg+xml" />
+    <link rel="stylesheet" href="{% static 'css/global.css' %}" />
+    <style>
+      .pn-error-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; padding: 4rem 1rem; text-align: center; }
+      .pn-error-page .pn-lead { max-width: 36rem; }
+      .pn-error-page h1, .pn-error-page p { margin: 0; }
+      .pn-error-page a { text-decoration: none; }
+    </style>
+  </head>
+  <body class="pn-body">
+    <main class="pn-error-page">
+      <span class="pn-badge pn-tone-blood">500</span>
+      <h1 class="pn-display">Ada yang bangkit tanpa diundang.</h1>
+      <p class="pn-lead">
+        Terjadi galat di server kami. Datamu aman; coba muat ulang halaman beberapa saat lagi.
+        Kalau masih terjadi, kabari tim Pantry Necromancer.
+      </p>
+      <a href="/" class="pn-btn pn-btn--primary">Kembali ke beranda</a>
+    </main>
+  </body>
+</html>
