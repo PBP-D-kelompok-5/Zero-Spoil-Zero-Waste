@@ -54,6 +54,7 @@
     </div>
     <div class="flex flex-wrap gap-2 md:justify-end">
       <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--secondary">← Kembali ke Death Clock</a>
+      <a href="{% url 'graveyard:graveyard_create' %}" class="pn-btn pn-btn--primary text-sm">+ Catat Limbah Baru</a>
       <a href="{% url 'graveyard:graveyard_json' %}" target="_blank" class="pn-btn pn-btn--secondary">Ekspor Data (JSON)</a>
     </div>
   </header>
@@ -311,12 +312,18 @@
                   ~{{ item.estimated_carbon_kg }} kg
                 </td>
                 <td class="py-4 px-4 whitespace-nowrap text-center">
-                  <form method="post" action="{% url 'graveyard:graveyard_delete' item.pk %}" class="graveyard-delete-form" data-item-id="{{ item.pk }}" data-item-name="{{ item.name }}">
-                    {% csrf_token %}
-                    <button type="button" class="graveyard-delete-trigger text-xs text-blood-400/80 hover:text-blood-400 hover:underline cursor-pointer flex items-center justify-center gap-1 mx-auto" title="Cabut nisan {{ item.name }}">
-                      <span>Hapus</span>
-                    </button>
-                  </form>
+                  <div class="flex items-center justify-center gap-2">
+                    <a href="{% url 'graveyard:graveyard_edit' item.pk %}" class="text-xs text-bone-300 hover:text-ember-400 hover:underline cursor-pointer" title="Ubah nisan {{ item.name }}">
+                      Edit
+                    </a>
+                    <span class="text-crypt-700">·</span>
+                    <form method="post" action="{% url 'graveyard:graveyard_delete' item.pk %}" class="graveyard-delete-form inline-block" data-item-id="{{ item.pk }}" data-item-name="{{ item.name }}">
+                      {% csrf_token %}
+                      <button type="button" class="graveyard-delete-trigger text-xs text-blood-400/80 hover:text-blood-400 hover:underline cursor-pointer flex items-center justify-center gap-1" title="Cabut nisan {{ item.name }}">
+                        <span>Hapus</span>
+                      </button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             {% endfor %}
@@ -369,12 +376,18 @@
               <span class="text-xs text-frost-400 tabular-nums" title="Estimasi jejak emisi karbon limbah">
                 ~{{ item.estimated_carbon_kg }} kg CO₂e
               </span>
-              <form method="post" action="{% url 'graveyard:graveyard_delete' item.pk %}" class="graveyard-delete-form" data-item-id="{{ item.pk }}" data-item-name="{{ item.name }}">
-                {% csrf_token %}
-                <button type="button" class="graveyard-delete-trigger text-xs text-blood-400/80 hover:text-blood-400 hover:underline cursor-pointer">
-                  Hapus Catatan
-                </button>
-              </form>
+              <div class="flex items-center gap-2.5">
+                <a href="{% url 'graveyard:graveyard_edit' item.pk %}" class="text-xs text-bone-300 hover:text-ember-400 hover:underline cursor-pointer">
+                  Edit
+                </a>
+                <span class="text-crypt-700">·</span>
+                <form method="post" action="{% url 'graveyard:graveyard_delete' item.pk %}" class="graveyard-delete-form" data-item-id="{{ item.pk }}" data-item-name="{{ item.name }}">
+                  {% csrf_token %}
+                  <button type="button" class="graveyard-delete-trigger text-xs text-blood-400/80 hover:text-blood-400 hover:underline cursor-pointer">
+                    Hapus
+                  </button>
+                </form>
+              </div>
             </div>
           </article>
         {% endfor %}
@@ -398,7 +411,10 @@
               Reset Saringan
             </a>
           {% else %}
-            <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--primary text-sm">
+            <a href="{% url 'graveyard:graveyard_create' %}" class="pn-btn pn-btn--primary text-sm">
+              + Catat Limbah Pertama
+            </a>
+            <a href="{% url 'death_clock:pantry_list' %}" class="pn-btn pn-btn--secondary text-sm">
               Buka Pantry Death Clock
             </a>
           {% endif %}
