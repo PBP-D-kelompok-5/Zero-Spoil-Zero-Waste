@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'death_clock',
     'graveyard',
     'recipe_alchemist',
+    'dead_drop',
     'main',
 ]
 
