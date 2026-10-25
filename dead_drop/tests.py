@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from .models import FoodListing, ListingStatus
-
+from .forms import FoodListingForm
 
 # Create your tests here.
 class FoodListingModelTests(TestCase):
@@ -33,3 +33,51 @@ class FoodListingModelTests(TestCase):
 
     def test_string_representation_is_food_name(self):
         self.assertEqual(str(self.listing), "Kangkung")
+
+class FoodListingFormTests(TestCase):
+    def test_accepts_valid_listing(self):
+        form = FoodListingForm(data={
+            "food_name": "Kangkung",
+            "description": "Kangkung tersimpan dengan baik",
+            "pickup_location": "Depok",
+            "pickup_time": (timezone.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M"),
+            "pickup_notes": "Temui saya di gerbang",
+            "latitude": "-6.200000",
+            "longitude": "106.816666",
+        })
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_rejects_latitude_above_maximum(self):
+        form = FoodListingForm(data={
+            "food_name": "Kangkung",
+            "description": "Kangkung tersimpan dengan baik",
+            "pickup_location": "Depok",
+            "pickup_time": (timezone.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M"),
+            "pickup_notes": "Temui saya di gerbang",
+            "latitude": "91",
+            "longitude": "106.816666",
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("latitude", form.errors)
+
+    def test_rejects_past_pickup_time(self):
+        form = FoodListingForm(data={
+            "food_name": "Kangkung",
+            "description": "Kangkung tersimpan dengan baik",
+            "pickup_location": "Depok",
+            "pickup_time": (timezone.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M"),
+            "pickup_notes": "Temui saya di gerbang",
+            "latitude": "-6.200000",
+            "longitude": "106.816666",
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("pickup_time", form.errors)
+
+    def test_does_not_expose_server_managed_fields(self):
+        form = FoodListingForm()
+        self.assertNotIn("owner", form.fields)
+        self.assertNotIn("reserved_by", form.fields)
+        self.assertNotIn("status", form.fields)
