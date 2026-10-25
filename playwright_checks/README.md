@@ -1,6 +1,6 @@
-# Pemeriksaan pribadi (Playwright)
+# Functional test (Playwright)
 
-Folder ini di-gitignore: hanya untuk mengecek situs (termasuk modul teman) di laptop sendiri.
+Menjalankan alur pengguna di browser Chromium sungguhan terhadap server Django (semua modul).
 
 ```bash
 pip install -r playwright_checks/requirements.txt

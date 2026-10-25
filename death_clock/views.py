@@ -16,9 +16,16 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from death_clock.forms import BulkAddForm, FilterForm, PantryItemForm, QuantityForm
 from death_clock.models import CRITICAL_DAYS, STATUS_TONES, PantryItem, Status
-from main.auth import guest_page, is_ajax, login_required_ajax
+from death_clock.seed import DEFAULT_COUNT as DEMO_ITEM_COUNT
+from death_clock.seed import seed_items
+from main.auth import guest_page, is_ajax, login_required_ajax, rate_limit
 
 LIST_URL = 'death_clock:pantry_list'
+
+# Batas permintaan per pengguna per menit (hanya POST, yaitu aksi yang mengubah data).
+limit_writes = rate_limit('death_clock:write', limit=60)   # tambah, ubah, jumlah, diolah, hapus
+limit_bulk = rate_limit('death_clock:bulk', limit=10)      # tiap tambah massal bisa membuat 30 bahan
+limit_seed = rate_limit('death_clock:seed', limit=3)       # tiap klik membuat 50 bahan
 
 
 # ---------- Helper ----------
@@ -71,6 +78,7 @@ def list_context(request):
         'filters': values,
         'is_filtered': any(values.values()),
         'critical_days': CRITICAL_DAYS,
+        'demo_item_count': DEMO_ITEM_COUNT,
     }
 
 
@@ -131,6 +139,7 @@ def item_json(request, pk):
 # ---------- Create ----------
 @require_http_methods(['GET', 'POST'])
 @login_required_ajax
+@limit_writes
 def item_create(request):
     form = PantryItemForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
@@ -147,6 +156,7 @@ def item_create(request):
 
 @require_http_methods(['GET', 'POST'])
 @login_required_ajax
+@limit_bulk
 def item_bulk_create(request):
     form = BulkAddForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
@@ -163,6 +173,7 @@ def item_bulk_create(request):
 # ---------- Update ----------
 @require_http_methods(['GET', 'POST'])
 @login_required_ajax
+@limit_writes
 def item_update(request, pk):
     item = get_user_item(request, pk)
     form = PantryItemForm(request.POST or None, instance=item)
@@ -179,6 +190,7 @@ def item_update(request, pk):
 
 @require_POST
 @login_required_ajax
+@limit_writes
 def item_quantity(request, pk):
     item = get_user_item(request, pk)
     form = QuantityForm(request.POST)
@@ -191,6 +203,7 @@ def item_quantity(request, pk):
 
 @require_POST
 @login_required_ajax
+@limit_writes
 def item_resurrect(request, pk):
     """Tandai bahan sudah diolah/dikonsumsi (Resurrected), atau batalkan tanda itu."""
     item = get_user_item(request, pk)
@@ -204,8 +217,28 @@ def item_resurrect(request, pk):
 # ---------- Delete ----------
 @require_POST
 @login_required_ajax
+@limit_writes
 def item_delete(request, pk):
     item = get_user_item(request, pk)
     name = item.name
     item.delete()
     return action_response(request, f'{name} dihapus dari inventaris.', tone='blood')
+
+
+# ---------- Data contoh ----------
+@require_POST
+@login_required_ajax
+@limit_seed
+def item_seed_demo(request):
+    """Isi inventaris yang masih kosong dengan bahan contoh (untuk akun demo / mencoba fitur).
+
+    Hanya untuk inventaris kosong supaya data asli tidak tercampur data contoh.
+    """
+    if user_items(request).exists():
+        detail = 'Data contoh hanya bisa diisi saat inventarismu masih kosong.'
+        if is_ajax(request):
+            return JsonResponse({'ok': False, 'detail': detail}, status=409)
+        messages.error(request, detail)
+        return redirect(LIST_URL)
+    items = seed_items(request.user)
+    return action_response(request, f'{len(items)} bahan contoh ditambahkan. Silakan dicoba!', status=201, tone='hex')

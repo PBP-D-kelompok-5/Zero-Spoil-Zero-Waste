@@ -8,10 +8,15 @@ Aturan yang dipakai di seluruh aplikasi:
    pengenalan modul (dengan tombol Masuk/Daftar), bukan dilempar ke halaman masuk.
 3. Objek milik pengguna lain dianggap tidak ada (404), agar keberadaannya tidak bocor.
 4. Tujuan ``next`` dari input pengguna hanya boleh mengarah ke situs ini sendiri.
+5. Endpoint sensitif dibatasi jumlah permintaannya (``rate_limit``; percobaan login gagal
+   lewat ``LoginThrottle``). Melebihi batas -> 429 (``rate_limit`` juga mengirim ``Retry-After``).
 """
+import math
+import time
 from functools import wraps
 
 from django.contrib.auth.views import redirect_to_login
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
@@ -76,3 +81,87 @@ def safe_next_url(request, fallback):
     ):
         return next_url
     return fallback
+
+
+# ---------- Rate limiting ----------
+# Penghitung disimpan di cache Django (bawaan: LocMemCache, per proses server). Cukup untuk
+# menahan klik/skrip beruntun; untuk beberapa worker sekaligus pakai cache bersama (mis. Redis).
+RATE_LIMIT_MESSAGE = 'Terlalu banyak permintaan. Coba lagi dalam {seconds} detik.'
+
+
+def client_ip(request):
+    return request.META.get('REMOTE_ADDR') or 'unknown'
+
+
+def _hit(cache_key, window):
+    """Tambah penghitung di jendela waktu tetap; kembalikan jumlah setelah ditambah."""
+    cache.add(cache_key, 0, window)
+    try:
+        return cache.incr(cache_key)
+    except ValueError:  # kunci kedaluwarsa tepat di antara add() dan incr()
+        cache.set(cache_key, 1, window)
+        return 1
+
+
+def _retry_after(window):
+    return max(1, math.ceil(window - time.time() % window))
+
+
+def too_many_requests(request, retry_after, detail=None):
+    detail = detail or RATE_LIMIT_MESSAGE.format(seconds=retry_after)
+    if wants_json(request):
+        response = JsonResponse({'ok': False, 'detail': detail, 'retry_after': retry_after}, status=429)
+    else:
+        response = render(request, '429.html', {'detail': detail}, status=429)
+    response['Retry-After'] = str(retry_after)
+    return response
+
+
+def rate_limit(scope, limit, window=60, methods=('POST',)):
+    """Batasi ``limit`` permintaan per ``window`` detik untuk tiap pengguna (tamu: per IP).
+
+    ``scope`` memisahkan penghitung antar-endpoint, mis. ``rate_limit('death_clock:bulk', 10)``.
+    Hanya metode di ``methods`` yang dihitung (bawaan: POST, yaitu aksi yang mengubah data).
+    """
+
+    def decorator(view):
+        @wraps(view)
+        def wrapper(request, *args, **kwargs):
+            if request.method in methods:
+                who = f'u{request.user.pk}' if request.user.is_authenticated else f'ip{client_ip(request)}'
+                bucket = int(time.time() // window)
+                if _hit(f'rl:{scope}:{who}:{bucket}', window) > limit:
+                    return too_many_requests(request, _retry_after(window))
+            return view(request, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+class LoginThrottle:
+    """Batas percobaan login GAGAL per pasangan (IP, username): menahan tebak-tebakan password.
+
+    Login yang berhasil menghapus penghitungnya. Saat terkunci, password tidak diperiksa sama sekali.
+    """
+
+    limit = 5
+    window = 5 * 60
+
+    def __init__(self, request, username):
+        self.key = f'rl:login:{client_ip(request)}:{(username or "").strip().casefold()}'
+
+    def blocked_for(self):
+        """Detik tersisa sampai boleh mencoba lagi, atau 0 bila belum terkunci."""
+        if cache.get(self.key, 0) < self.limit:
+            return 0
+        expires_at = cache.get(f'{self.key}:until')
+        return max(1, math.ceil(expires_at - time.time())) if expires_at else self.window
+
+    def failed(self):
+        if cache.add(f'{self.key}:until', time.time() + self.window, self.window):
+            cache.set(self.key, 0, self.window)
+        _hit(self.key, self.window)
+
+    def reset(self):
+        cache.delete_many([self.key, f'{self.key}:until'])

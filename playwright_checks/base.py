@@ -1,4 +1,4 @@
-"""Pemeriksaan pribadi dengan Playwright (browser Chromium sungguhan). Folder ini di-gitignore.
+"""Functional test dengan Playwright (browser Chromium sungguhan) untuk semua modul.
 
 Menjalankan (dari root proyek):
     pip install -r playwright_checks/requirements.txt

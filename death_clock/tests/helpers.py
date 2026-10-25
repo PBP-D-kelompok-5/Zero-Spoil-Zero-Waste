@@ -1,11 +1,21 @@
 from datetime import timedelta
 
 from django.contrib.auth.models import User
+from django.core.cache import cache
+from django.test import TestCase
 from django.utils import timezone
 
 from death_clock.models import Category, PantryItem, Storage
 
 AJAX = {'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest'}
+
+
+class DeathClockTestCase(TestCase):
+    """TestCase yang mengosongkan cache tiap test, karena penghitung rate limit disimpan di cache."""
+
+    def setUp(self):
+        cache.clear()
+        super().setUp()
 
 
 def today():

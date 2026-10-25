@@ -1,10 +1,11 @@
 {% comment %}
   Daftar bahan. Dirender saat halaman dimuat dan ulang lewat AJAX ketika filter berubah.
-  Konteks: items, counts, filters, is_filtered.
+  Konteks: items, counts, filters, is_filtered, demo_item_count.
+  Atribut data-dc-* dipakai static/death_clock/ untuk memperbarui angka tanpa memuat ulang.
 {% endcomment %}
 {% if counts.FLATLINING and not filters.status or counts.FLATLINING and filters.status == 'FLATLINING' %}
-  <div class="pn-alert pn-tone-blood mb-6" role="note">
-    <p class="font-semibold">{{ counts.FLATLINING }} bahan flatlining.</p>
+  <div class="pn-alert pn-tone-blood mb-6" role="note" data-dc-alert>
+    <p class="font-semibold"><span data-dc-alert-count>{{ counts.FLATLINING }}</span> bahan flatlining.</p>
     <p class="mt-1 text-sm text-bone-200">Olah hari ini, atau cek kondisinya dulu. Kalau ragu soal keamanannya, jangan dicicipi.</p>
   </div>
 {% endif %}
@@ -13,11 +14,12 @@
   <h2 class="pn-heading">
     {% if filters.status == 'RESURRECTED' %}Sudah diselamatkan{% else %}Inventaris aktif{% endif %}
   </h2>
-  <p class="text-sm pn-muted">{{ items|length }} bahan{% if is_filtered %} cocok dengan filter{% endif %}</p>
+  <p class="text-sm pn-muted"><span data-dc-visible-count>{{ items|length }}</span> bahan{% if is_filtered %} cocok dengan filter{% endif %}</p>
 </div>
 
 {% if items %}
-  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+  {# grid-cols-1 (minmax(0,1fr)) agar nama bahan yang panjang tidak melebarkan halaman di HP #}
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
     {% for item in items %}
       {% include 'death_clock/partials/item_card.html' %}
     {% endfor %}
@@ -30,6 +32,11 @@
       <a href="{% url 'death_clock:item_create' %}" class="pn-btn pn-btn--primary" data-dc-modal="Tambah bahan">+ Tambah bahan</a>
       <a href="{% url 'death_clock:item_bulk_create' %}" class="pn-btn pn-btn--secondary" data-dc-modal="Tambah massal">Tambah massal</a>
     </div>
+    <form method="post" action="{% url 'death_clock:item_seed_demo' %}" class="mt-6 border-t border-crypt-700 pt-5" data-dc-action="seed">
+      {% csrf_token %}
+      <p class="text-sm pn-muted">Ingin langsung mencoba semua fitur?</p>
+      <button type="submit" class="pn-btn pn-btn--ghost pn-btn--sm mt-2">Isi {{ demo_item_count }} bahan contoh</button>
+    </form>
   </div>
 {% elif is_filtered %}
   <div class="pn-card dc-empty">

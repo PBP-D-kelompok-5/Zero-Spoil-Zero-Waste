@@ -58,13 +58,15 @@ Setiap modul dikembangkan secara independen oleh satu anggota kelompok dan memen
 
 ### 1. Pantry Death Clock (Inventaris Bahan Makanan Pribadi) — *Michael Evan Putra Nugroho*
 * **Deskripsi:** Dasbor utama bagi pengguna untuk mengelola inventaris bahan makanan pribadi sebelum melewati batas kelayakan konsumsi.
-* **Model:** Menyimpan nama bahan, tanggal pembelian, estimasi kedaluwarsa, jumlah/kuantitas, kategori, serta status peluruhan dinamis (`Stable`, `Critical`, atau `Flatlining`).
+* **Model:** Menyimpan nama bahan, tanggal pembelian, estimasi kedaluwarsa, jumlah/kuantitas, kategori, tempat simpan, serta status peluruhan dinamis (`Stable`, `Critical`, `Flatlining`, atau `Resurrected` bila sudah diolah).
 * **Fitur CRUD:**
   * **Create:** Menambahkan bahan makanan baru secara satuan atau melalui input massal terpisah koma.
   * **Read:** Menampilkan daftar bahan makanan yang diurutkan berdasarkan sisa hari kedaluwarsa.
   * **Update:** Memperbarui jumlah bahan, memperpanjang estimasi tanggal kedaluwarsa, atau mengubah kategori.
   * **Delete:** Menghapus bahan makanan yang telah dimasak/dikonsumsi atau menandainya sebagai berhasil diselamatkan.
-* **Interaktivitas & Otentikasi:** Pembaruan status bahan makanan tanpa memuat ulang halaman (*AJAX/HTMX*); data bersifat privat dan hanya dapat diakses oleh pengguna terotentikasi.
+* **Interaktivitas:** Seluruh CRUD berjalan lewat AJAX tanpa memuat ulang halaman (modal tambah/ubah, filter & pencarian langsung). Aksi cepat memakai *optimistic UI*: jumlah, "Sudah diolah", dan hapus langsung berubah di layar lalu dikembalikan bila server menolak. JavaScript dipecah per bagian sebagai ES module (`static/death_clock/modules/`).
+* **Otentikasi & keamanan:** Data privat per pengguna (bahan milik orang lain → 404); tamu melihat halaman pengenalan; endpoint yang mengubah data dibatasi per pengguna per menit (`rate_limit` di `main/auth.py`, 429 + `Retry-After`), begitu pula percobaan login yang gagal.
+* **Data contoh:** Tombol "Isi 50 bahan contoh" pada inventaris kosong (mis. akun demo di PWS) atau command `seed_death_clock`.
 
 ### 2. Recipe Alchemist (Penyelamat Resep & Integrasi API Publik) — *Nuno Mikael Nugroho*
 * **Deskripsi:** Mesin pencari resep cerdas yang mencocokkan sisa bahan makanan di inventaris dengan resep masakan praktis untuk meminimalkan sisa pangan.
@@ -121,7 +123,7 @@ Setiap modul dikembangkan secara independen oleh satu anggota kelompok dan memen
 * Timeout 15 detik. Galat jaringan, kuota habis, atau API key kosong ditampilkan sebagai pesan yang rapi, dan hasil dari koleksi lokal/komunitas tetap ditampilkan.
 
 **Data awal**
-* Death Clock: `python manage.py seed_death_clock <username> --count 50` membuat 50 bahan sintetis untuk satu akun, diambil dari katalog bahan dapur umum (kategori, satuan, tempat simpan, dan umur simpan kasar per bahan) dengan tanggal beli acak, sehingga status Stable/Critical/Flatlining tersebar realistis.
+* Death Clock: data sintetis dari katalog 50 bahan dapur umum (kategori, satuan, tempat simpan, dan umur simpan kasar per bahan) dengan tanggal beli acak relatif terhadap hari ini, sehingga status Stable/Critical/Flatlining/Resurrected tersebar realistis. Karena inventaris bersifat privat, data dibuat per akun: `python manage.py seed_death_clock <username>` (butuh akses shell) atau tombol "Isi 50 bahan contoh" di halaman Death Clock yang masih kosong (bisa dipakai langsung di PWS).
 * Recipe Alchemist: resep berasal dari Spoonacular dan dari resep yang ditulis pengguna.
 * `[isi: sumber data awal modul lain bila ada]`
 
@@ -197,6 +199,14 @@ coverage report
 
 Setiap modul punya unit test untuk model, form, view (termasuk akses tanpa login, akses ke data milik pengguna lain, dan respons AJAX/JSON).
 
+**Functional test (browser sungguhan, Playwright)** ada di `playwright_checks/`: alur pengguna dijalankan di Chromium terhadap server Django (CRUD lewat AJAX, optimistic UI, tampilan HP 375/320 px, isolasi data, XSS).
+
+```bash
+pip install -r playwright_checks/requirements.txt
+playwright install chromium
+python manage.py test playwright_checks -p "check_*.py"
+```
+
 ---
 
 ## 🚀 Deployment & CI/CD
@@ -222,7 +232,7 @@ Kami menggunakan alat AI selama pengembangan. Setiap anggota bertanggung jawab m
 
 | Anggota | Alat | Dipakai untuk | Strategi prompt | Batasan yang ditemui & perbaikan manual |
 | :--- | :--- | :--- | :--- | :--- |
-| Michael Evan Putra Nugroho | Claude (aplikasi Claude, mode Cowork) | Kerangka awal Django & design system v1, landing page + autentikasi, implementasi Modul Death Clock beserta test, audit progres & keamanan tim, penyeragaman alur autentikasi lintas modul (`main/auth.py`), perbaikan tampilan Grimoire, form "kubur" Graveyard, halaman 404/500, diagnosis galat deployment | Memberi spesifikasi tugas, palet & struktur folder yang diinginkan, batasan (Bahasa Indonesia, AI tidak boleh melakukan aksi Git), lalu meminta AI menjalankan test dan menunjukkan bukti sebelum perubahan diterapkan | AI sempat mengubah line ending file menjadi CRLF sehingga diff PR membengkak; usulan memindahkan `SECRET_KEY` dibatalkan sesuai arahan dosen; AI tidak dapat mengakses log PWS dan CDN Tailwind sehingga pengecekan dilakukan manual. Seluruh commit, review, dan konfigurasi PWS dilakukan sendiri. `[Evan: lengkapi/koreksi]` |
+| Michael Evan Putra Nugroho | Claude (aplikasi Claude, mode Cowork) | Kerangka awal Django & design system v1, landing page + autentikasi, implementasi Modul Death Clock beserta test, audit progres & keamanan tim, penyeragaman alur autentikasi lintas modul (`main/auth.py`), perbaikan tampilan Grimoire, form "kubur" Graveyard, halaman 404/500, diagnosis galat deployment | Memberi spesifikasi tugas, palet & struktur folder yang diinginkan, batasan (Bahasa Indonesia, AI tidak boleh melakukan aksi Git), lalu meminta AI menjalankan test dan menunjukkan bukti sebelum perubahan diterapkan | AI sempat mengubah line ending file menjadi CRLF sehingga diff PR membengkak; usulan memindahkan `SECRET_KEY` dibatalkan sesuai arahan dosen; AI tidak dapat mengakses log PWS dan CDN Tailwind sehingga pengecekan dilakukan manual. Seluruh commit, review, dan konfigurasi PWS dilakukan sendiri. |
 | Nuno Mikael Nugroho | `[isi]` | `[isi]` | `[isi]` | `[isi]` |
 | Joshua Carnsyn Suyanto Sidik | `[isi]` | `[isi]` | `[isi]` | `[isi]` |
 | Adam Wahyu Syaputra | `[isi]` | `[isi]` | `[isi]` | `[isi]` |

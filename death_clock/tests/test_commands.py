@@ -1,13 +1,13 @@
 from io import StringIO
 
 from django.core.management import CommandError, call_command
-from django.test import TestCase
 
 from death_clock.models import PantryItem, Status
-from death_clock.tests.helpers import make_item, make_user
+from death_clock.seed import CATALOG, seed_items
+from death_clock.tests.helpers import DeathClockTestCase, make_item, make_user
 
 
-class SeedCommandTest(TestCase):
+class SeedCommandTest(DeathClockTestCase):
     def setUp(self):
         self.user = make_user()
 
@@ -36,3 +36,19 @@ class SeedCommandTest(TestCase):
             call_command('seed_death_clock', 'tidak-ada', stdout=StringIO())
         with self.assertRaises(CommandError):
             self.run_seed('--count', '0')
+
+
+class SeedItemsTest(DeathClockTestCase):
+    def test_catalog_has_fifty_unique_items(self):
+        names = [entry[0] for entry in CATALOG]
+        self.assertEqual(len(names), 50)
+        self.assertEqual(len(set(names)), 50)
+
+    def test_every_tenth_item_is_resurrected(self):
+        items = seed_items(make_user(), seed=1)
+        self.assertEqual(sum(item.is_resurrected for item in items), 5)
+        self.assertEqual(len({item.name for item in items}), 50)
+
+    def test_more_than_catalog_gets_numbered_names(self):
+        items = seed_items(make_user(), count=52, seed=1)
+        self.assertEqual(sum(item.name.endswith(' (2)') for item in items), 2)

@@ -1,9 +1,11 @@
+import math
+
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from main.auth import safe_next_url
+from main.auth import LoginThrottle, safe_next_url
 from main.forms import LoginForm, RegisterForm
 
 MODULES = [
@@ -85,13 +87,26 @@ def login_user(request):
         return redirect('main:show_main')
 
     form = LoginForm(request, data=request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        user = form.get_user()
-        login(request, user)
-        messages.success(request, f'Selamat datang kembali, {user.username}!')
-        return redirect(get_next_url(request))
+    status = 200
+    if request.method == 'POST':
+        throttle = LoginThrottle(request, request.POST.get('username'))
+        wait = throttle.blocked_for()
+        if wait:
+            # Terkunci: password tidak diperiksa sama sekali agar tebakan beruntun tidak berguna.
+            form = LoginForm(request, initial={'username': request.POST.get('username', '')})
+            messages.error(request, f'Terlalu banyak percobaan masuk yang gagal. Coba lagi dalam {math.ceil(wait / 60)} menit.')
+            status = 429
+        elif form.is_valid():
+            throttle.reset()
+            user = form.get_user()
+            login(request, user)
+            messages.success(request, f'Selamat datang kembali, {user.username}!')
+            return redirect(get_next_url(request))
+        else:
+            throttle.failed()
 
-    return render(request, 'main/auth/login.html', {'form': form, 'next': request.GET.get('next', '')})
+    context = {'form': form, 'next': request.GET.get('next', '')}
+    return render(request, 'main/auth/login.html', context, status=status)
 
 
 @require_POST
