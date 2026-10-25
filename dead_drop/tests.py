@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
+from django.urls import reverse
 
 from .models import FoodListing, ListingStatus
 from .forms import FoodListingForm
@@ -74,3 +75,115 @@ class FoodListingFormTests(TestCase):
         self.assertNotIn("owner", form.fields)
         self.assertNotIn("reserved_by", form.fields)
         self.assertNotIn("status", form.fields)
+
+class FoodListingBoardTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.owner = user_model.objects.create_user(username="owner", password="test_password")
+        self.reserved_by = user_model.objects.create_user(username="reservationMaker", password="test_password")
+        self.other_user = user_model.objects.create_user(username="otherUser", password="test_password")
+
+        self.listing_available = FoodListing.objects.create(
+            owner = self.owner,
+            food_name = "Kangkung",
+            description="Kangkung tersimpan dengan baik",
+            pickup_location="Depok",
+            pickup_time=timezone.now() + timedelta(days=1),
+            pickup_notes="Temui saya di gerbang",
+            latitude=Decimal("-6.200000"),
+            longitude=Decimal("106.816666"),
+        )
+
+        self.listing_reserved = FoodListing.objects.create(
+            owner = self.owner,
+            reserved_by = self.reserved_by,
+            food_name = "Kangkung",
+            description="Kangkung tersimpan dengan baik",
+            pickup_location="Depok",
+            pickup_time=timezone.now() + timedelta(days=1),
+            pickup_notes="Temui saya di gerbang",
+            latitude=Decimal("-6.200000"),
+            longitude=Decimal("106.816666"),
+            status = ListingStatus.RESERVED
+        )
+
+        self.listing_claimed = FoodListing.objects.create(
+            owner = self.owner,
+            reserved_by = self.reserved_by,
+            food_name = "Kangkung",
+            description="Kangkung tersimpan dengan baik",
+            pickup_location="Depok",
+            pickup_time=timezone.now() + timedelta(days=1),
+            pickup_notes="Temui saya di gerbang",
+            latitude=Decimal("-6.200000"),
+            longitude=Decimal("106.816666"),
+            status = ListingStatus.CLAIMED,
+            claimed_at = timezone.now()
+        )
+
+    def test_anonymous_user_sees_available_listings_only(self):
+        response = self.client.get(reverse("dead_drop:listing_board"))
+        self.assertEqual(response.status_code, 200)
+
+        available_ids = {listing.pk for listing in response.context["available_listings"]}
+        self.assertIn(self.listing_available.pk, available_ids)
+        self.assertEqual(list(response.context["reserved_listings"]), [])
+        self.assertEqual(list(response.context["claimed_listings"]), [])
+
+    def test_owner_can_see_reserved_and_claimed_listings(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+        self.assertEqual(response.status_code, 200)
+
+        reserved_ids = {
+            listing.pk
+            for listing in response.context["reserved_listings"]
+        }
+        claimed_ids = {
+            listing.pk
+            for listing in response.context["claimed_listings"]
+        }
+
+        self.assertIn(self.listing_reserved.pk, reserved_ids)
+        self.assertIn(self.listing_claimed.pk, claimed_ids)
+
+    def test_reservation_maker_can_see_reserved_and_claimed_listings(self):
+        self.client.force_login(self.reserved_by)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+        self.assertEqual(response.status_code, 200)
+
+        reserved_ids = {
+            listing.pk
+            for listing in response.context["reserved_listings"]
+        }
+        claimed_ids = {
+            listing.pk
+            for listing in response.context["claimed_listings"]
+        }
+
+        self.assertIn(self.listing_reserved.pk, reserved_ids)
+        self.assertIn(self.listing_claimed.pk, claimed_ids)
+
+    def test_other_user_cannot_see_others_reserved_and_claimed_listings(self):
+        self.client.force_login(self.other_user)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+        self.assertEqual(response.status_code, 200)
+
+        available_ids = [
+            listing.pk
+            for listing in response.context["available_listings"]
+        ]
+        reserved_ids = {
+            listing.pk
+            for listing in response.context["reserved_listings"]
+        }
+        claimed_ids = {
+            listing.pk
+            for listing in response.context["claimed_listings"]
+        }
+
+        self.assertIn(self.listing_available.pk, available_ids)
+        self.assertNotIn(self.listing_reserved.pk, available_ids)
+        self.assertNotIn(self.listing_claimed.pk, available_ids)
+        self.assertNotIn(self.listing_reserved.pk, reserved_ids)
+        self.assertNotIn(self.listing_claimed.pk, claimed_ids)
