@@ -9,7 +9,6 @@ from django.urls import reverse
 from .models import FoodListing, ListingStatus
 from .forms import FoodListingForm
 
-# Create your tests here.
 class FoodListingModelTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -83,43 +82,32 @@ class FoodListingBoardTests(TestCase):
         self.reserved_by = user_model.objects.create_user(username="reservationMaker", password="test_password")
         self.other_user = user_model.objects.create_user(username="otherUser", password="test_password")
 
-        self.listing_available = FoodListing.objects.create(
-            owner = self.owner,
-            food_name = "Kangkung",
-            description="Kangkung tersimpan dengan baik",
-            pickup_location="Depok",
-            pickup_time=timezone.now() + timedelta(days=1),
-            pickup_notes="Temui saya di gerbang",
-            latitude=Decimal("-6.200000"),
-            longitude=Decimal("106.816666"),
-        )
+        self.listing_available = FoodListing.objects.create(**self.valid_listing_data())
 
-        self.listing_reserved = FoodListing.objects.create(
-            owner = self.owner,
-            reserved_by = self.reserved_by,
-            food_name = "Kangkung",
-            description="Kangkung tersimpan dengan baik",
-            pickup_location="Depok",
-            pickup_time=timezone.now() + timedelta(days=1),
-            pickup_notes="Temui saya di gerbang",
-            latitude=Decimal("-6.200000"),
-            longitude=Decimal("106.816666"),
-            status = ListingStatus.RESERVED
-        )
+        reserved_data = self.valid_listing_data()
+        reserved_data["reserved_by"] = self.reserved_by
+        reserved_data["status"] = ListingStatus.RESERVED
+        self.listing_reserved = FoodListing.objects.create(**reserved_data)
 
-        self.listing_claimed = FoodListing.objects.create(
-            owner = self.owner,
-            reserved_by = self.reserved_by,
-            food_name = "Kangkung",
-            description="Kangkung tersimpan dengan baik",
-            pickup_location="Depok",
-            pickup_time=timezone.now() + timedelta(days=1),
-            pickup_notes="Temui saya di gerbang",
-            latitude=Decimal("-6.200000"),
-            longitude=Decimal("106.816666"),
-            status = ListingStatus.CLAIMED,
-            claimed_at = timezone.now()
-        )
+        claimed_data = self.valid_listing_data()
+        claimed_data["reserved_by"] = self.reserved_by
+        claimed_data["status"] = ListingStatus.CLAIMED
+        claimed_data["claimed_at"] = timezone.now()
+        self.listing_claimed = FoodListing.objects.create(**claimed_data)
+
+    def valid_listing_data(self):
+        data = {
+            "owner": self.owner,
+            "food_name": "Kangkung",
+            "description": "Kangkung tersimpan dengan baik",
+            "pickup_location": "Depok",
+            "pickup_time": timezone.now() + timedelta(days=1),
+            "pickup_notes": "Temui saya di gerbang",
+            "latitude": Decimal("-6.200000"),
+            "longitude": Decimal("106.816666"),
+        }
+
+        return data
 
     def test_anonymous_user_sees_available_listings_only(self):
         response = self.client.get(reverse("dead_drop:listing_board"))

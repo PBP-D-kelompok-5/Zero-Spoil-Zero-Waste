@@ -2,7 +2,6 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 
-# Create your models here.
 class ListingStatus(models.TextChoices):
     AVAILABLE = "available", "Available"
     RESERVED = "reserved", "Reserved"

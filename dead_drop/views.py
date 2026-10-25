@@ -1,9 +1,8 @@
 from django.db.models import Q
 from django.shortcuts import render
 
-from dead_drop.models import FoodListing, ListingStatus
+from .models import FoodListing, ListingStatus
 
-# Create your views here.
 def visible_listing_for(user):
     queryset = FoodListing.objects.all()
 
