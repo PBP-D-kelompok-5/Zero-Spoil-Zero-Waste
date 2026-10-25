@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main>
+    <h1>Dead Drop</h1>
+    <p>Papan berbagi bahan makanan di komunitasmu.</p>
+
+    <section>
+        <h2>Tersedia</h2>
+
+        {% for listing in available_listings %}
+            <article>
+                <h3>{{ listing.food_name }}</h3>
+                <p>{{ listing.description }}</p>
+                <p><strong>Lokasi:</strong> {{ listing.pickup_location }}</p>
+                <p><strong>Waktu penjemputan:</strong> {{ listing.pickup_time|date:"d M Y, H:i" }}</p>
+                <p><strong>Catatan:</strong> {{ listing.pickup_notes }}</p>
+                <p><strong>Diposting oleh:</strong> {{ listing.owner }}</p>
+            </article>
+        {% empty %}
+            <p>Belum ada makanan yang tersedia.</p>
+        {% endfor %}
+    </section>
+
+    <section>
+        <h2>Reservasi</h2>
+
+        {% for listing in reserved_listings %}
+            <article>
+                <h3>{{ listing.food_name }}</h3>
+                <p>{{ listing.description }}</p>
+                <p><strong>Lokasi:</strong> {{ listing.pickup_location }}</p>
+                <p><strong>Waktu penjemputan:</strong> {{ listing.pickup_time|date:"d M Y, H:i" }}</p>
+                <p><strong>Direservasi oleh:</strong> {{ listing.reserved_by }}</p>
+            </article>
+        {% empty %}
+            <p>Belum ada makanan yang kamu reservasi atau posting.</p>
+        {% endfor %}
+    </section>
+
+    <section>
+        <h2>Riwayat klaim</h2>
+
+        {% for listing in claimed_listings %}
+            <article>
+                <h3>{{ listing.food_name }}</h3>
+                <p>{{ listing.description }}</p>
+                <p><strong>Lokasi:</strong> {{ listing.pickup_location }}</p>
+                <p><strong>Waktu penjemputan:</strong> {{ listing.pickup_time|date:"d M Y, H:i" }}</p>
+                <p><strong>Waktu diklaim:</strong> {{ listing.claimed_at|date:"d M Y, H:i" }}</p>
+            </article>
+        {% empty %}
+            <p>Belum ada makanan yang kamu klaim atau posting hingga selesai.</p>
+        {% endfor %}
+    </section>
+</main>
+{% endblock %}
