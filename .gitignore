@@ -13,9 +13,6 @@ __pycache__/
 .coverage.*
 htmlcov/
 
-# Playwright (private)
-playwright_checks/
-
 # OS & IDE Files
 .DS_Store
 .vscode/*
