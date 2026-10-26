@@ -162,6 +162,8 @@ class FilterForm(forms.Form):
     storage = forms.ChoiceField(label='Tempat simpan', choices=[('', 'Semua')] + Storage.choices, required=False)
 
     def __init__(self, *args, **kwargs):
+        # Prefix id sendiri: form tambah/ubah di modal juga punya field category & storage (id_category, id_storage).
+        kwargs.setdefault('auto_id', 'filter_%s')
         super().__init__(*args, **kwargs)
         self.fields['q'].widget.attrs.update({'placeholder': 'Nama bahan atau catatan…', 'type': 'search'})
 
