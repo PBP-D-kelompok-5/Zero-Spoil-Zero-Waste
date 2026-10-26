@@ -252,12 +252,12 @@ class FoodListingReserveTests(TestCase):
         self.reserve_url = reverse("dead_drop:reserve_listing", kwargs={"listing_id": self.listing.pk})
 
     def test_anonymous_user_redirected_to_login_page(self):
-        response = self.client.get(self.create_url)
+        response = self.client.get(self.reserve_url)
         expected_url = reverse("main:login")
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(urlsplit(response.url).path, expected_url)
-        self.assertEqual(parse_qs(urlsplit(response.url).query).get("next"), [self.create_url])
+        self.assertEqual(parse_qs(urlsplit(response.url).query).get("next"), [self.reserve_url])
 
     def test_get_request_is_not_allowed(self):
         self.client.force_login(self.reserver)
@@ -329,7 +329,6 @@ class FoodListingReserveTests(TestCase):
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.status, ListingStatus.RESERVED)
         self.assertEqual(self.listing.reserved_by, self.reserver)
-
 
     def test_nonexistent_listing_returns_not_found(self):
         self.client.force_login(self.reserver)

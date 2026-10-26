@@ -1,7 +1,9 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from .forms import FoodListingForm
 from .models import FoodListing, ListingStatus
@@ -52,3 +54,29 @@ def create_listing(request):
     }
 
     return render(request, "dead_drop/food_listing_form.html", context)
+
+@login_required
+@require_POST
+def reserve_listing(request, listing_id):
+    listing = get_object_or_404(FoodListing, pk=listing_id)
+
+    updated = (
+        FoodListing.objects
+        .filter(
+            pk=listing_id,
+            status=ListingStatus.AVAILABLE,
+        )
+        .exclude(owner=request.user)
+        .update(
+            status=ListingStatus.RESERVED,
+            reserved_by=request.user,
+            updated_at=timezone.now(),
+        )
+    )
+
+    if updated:
+        messages.success(request, f"{listing.food_name} berhasil kamu reservasi.")
+    else:
+        messages.error(request, "Makanan ini tidak tersedia untuk direservasi")
+
+    return redirect("dead_drop:listing_board")
