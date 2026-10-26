@@ -566,3 +566,172 @@ class FoodListingClaimTests(TestCase):
         response = self.client.post(missing_url)
 
         self.assertEqual(response.status_code, 404)
+
+class FoodListingEditTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.owner = user_model.objects.create_user(username="owner", password="test_password")
+        self.reserver = user_model.objects.create_user(username="reservationMaker", password="test_password")
+        self.other_user = user_model.objects.create_user(username="otherUser", password="test_password")
+
+        self.listing_available = FoodListing.objects.create(**self.valid_listing_data())
+
+        claimed_data = self.valid_listing_data()
+        claimed_data["reserved_by"] = self.reserver
+        claimed_data["status"] = ListingStatus.CLAIMED
+        claimed_data["claimed_at"] = timezone.now()
+        self.listing_claimed = FoodListing.objects.create(**claimed_data)
+
+        self.edit_url = reverse("dead_drop:edit_listing", kwargs={"listing_id": self.listing_available.pk})
+
+    def valid_listing_data(self):
+        data = {
+            "owner": self.owner,
+            "food_name": "Kangkung",
+            "description": "Kangkung tersimpan dengan baik",
+            "pickup_location": "Depok",
+            "pickup_time": timezone.now() + timedelta(days=1),
+            "pickup_notes": "Temui saya di gerbang",
+            "latitude": Decimal("-6.200000"),
+            "longitude": Decimal("106.816666"),
+        }
+
+        return data
+
+    def edited_valid_listing_data(self):
+        data = {
+            "food_name": "Bayam",
+            "description": "Bayam tersimpan dengan baik",
+            "pickup_location": "Puncak",
+            "pickup_time": timezone.now() + timedelta(days=2),
+            "pickup_notes": "Temui saya di lapangan",
+            "latitude": Decimal("6.200000"),
+            "longitude": Decimal("-106.816666"),
+        }
+
+        return data
+
+    def test_anonymous_user_redirected_to_login_page(self):
+        response = self.client.get(self.edit_url)
+        expected_url = reverse("main:login")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(urlsplit(response.url).path, expected_url)
+        self.assertEqual(parse_qs(urlsplit(response.url).query).get("next"), [self.edit_url])
+
+    def test_owner_can_open_edit_form(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.get(self.edit_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "dead_drop/food_listing_form.html")
+
+    def test_owner_can_edit_listing(self):
+        self.client.force_login(self.owner)
+        edited_data = self.edited_valid_listing_data()
+        response = self.client.post(self.edit_url, data=edited_data)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+
+        self.listing_available.refresh_from_db()
+        self.assertEqual(self.listing_available.food_name, edited_data["food_name"])
+        self.assertEqual(self.listing_available.description, edited_data["description"])
+        self.assertEqual(self.listing_available.pickup_location, edited_data["pickup_location"])
+        self.assertEqual(self.listing_available.pickup_time, edited_data["pickup_time"])
+        self.assertEqual(self.listing_available.pickup_notes, edited_data["pickup_notes"])
+        self.assertEqual(self.listing_available.latitude, edited_data["latitude"])
+        self.assertEqual(self.listing_available.longitude, edited_data["longitude"])
+
+    def test_edit_preserves_status_and_reserver(self):
+        reserved_data = self.valid_listing_data()
+        reserved_data["status"] = ListingStatus.RESERVED
+        reserved_data["reserved_by"] = self.reserver
+        reserved_listing = FoodListing.objects.create(**reserved_data)
+
+        edit_url = reverse("dead_drop:edit_listing", kwargs={"listing_id": reserved_listing.pk})
+
+        self.client.force_login(self.owner)
+        edited_data = self.edited_valid_listing_data()
+        response = self.client.post(edit_url, data=edited_data)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+
+        reserved_listing.refresh_from_db()
+        self.assertEqual(reserved_listing.status, ListingStatus.RESERVED)
+        self.assertEqual(reserved_listing.reserved_by, self.reserver)
+
+    def test_invalid_edit_does_not_change_listing(self):
+        self.client.force_login(self.owner)
+        invalid_data = self.edited_valid_listing_data()
+        invalid_data["pickup_time"] = (timezone.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
+
+        response = self.client.post(self.edit_url, data=invalid_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("pickup_time", response.context["form"].errors)
+
+        self.listing_available.refresh_from_db()
+        self.assertEqual(self.listing_available.food_name, "Kangkung")
+        self.assertEqual(self.listing_available.description, "Kangkung tersimpan dengan baik")
+
+    def test_non_owner_cannot_edit_listing(self):
+        original_values = {
+            "food_name": self.listing_available.food_name,
+            "description": self.listing_available.description,
+            "pickup_location": self.listing_available.pickup_location,
+            "pickup_time": self.listing_available.pickup_time,
+            "pickup_notes": self.listing_available.pickup_notes,
+            "latitude": self.listing_available.latitude,
+            "longitude": self.listing_available.longitude,
+            "status": self.listing_available.status,
+            "reserved_by": self.listing_available.reserved_by,
+        }
+
+        self.client.force_login(self.other_user)
+        edited_data = self.edited_valid_listing_data()
+        response = self.client.post(self.edit_url, data=edited_data)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+
+        self.listing_available.refresh_from_db()
+        for field, original_value in original_values.items():
+            with self.subTest(field=field):
+                self.assertEqual(getattr(self.listing_available, field), original_value)
+
+    def test_claimed_listing_cannot_be_edited(self):
+        fields = (
+            "food_name",
+            "description",
+            "pickup_location",
+            "pickup_time",
+            "pickup_notes",
+            "latitude",
+            "longitude",
+            "status",
+            "reserved_by",
+            "claimed_at",
+        )
+        original_values = {
+            field: getattr(self.listing_claimed, field)
+            for field in fields
+        }
+
+        self.client.force_login(self.owner)
+        edited_data = self.edited_valid_listing_data()
+        response = self.client.post(reverse("dead_drop:edit_listing", kwargs={"listing_id": self.listing_claimed.pk}), data=edited_data)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+
+        self.listing_claimed.refresh_from_db()
+        for field, original_value in original_values.items():
+            with self.subTest(field=field):
+                self.assertEqual(getattr(self.listing_claimed, field), original_value)
+
+    def test_nonexistent_listing_returns_not_found(self):
+        self.client.force_login(self.owner)
+        missing_url = reverse("dead_drop:edit_listing", kwargs={"listing_id": self.listing_claimed.pk + 1})
+
+        response = self.client.post(missing_url)
+
+        self.assertEqual(response.status_code, 404)
