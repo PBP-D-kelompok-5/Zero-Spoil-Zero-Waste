@@ -80,3 +80,31 @@ def reserve_listing(request, listing_id):
         messages.error(request, "Makanan ini tidak tersedia untuk direservasi")
 
     return redirect("dead_drop:listing_board")
+
+@login_required
+@require_POST
+def cancel_reserve_listing(request, listing_id):
+    listing = get_object_or_404(FoodListing, pk=listing_id)
+
+    updated = (
+        FoodListing.objects
+        .filter(
+            pk=listing_id,
+            status=ListingStatus.RESERVED,
+        )
+        .filter(
+            Q(owner=request.user) | Q(reserved_by=request.user)
+        )
+        .update(
+            status=ListingStatus.AVAILABLE,
+            reserved_by=None,
+            updated_at=timezone.now(),
+        )
+    )
+
+    if updated:
+        messages.success(request, f"Reservasi {listing.food_name} berhasil kamu batalkan.")
+    else:
+        messages.error(request, "Reservasi makanan ini tidak bisa dibatalkan")
+
+    return redirect("dead_drop:listing_board")
