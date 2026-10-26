@@ -159,3 +159,21 @@ def edit_listing(request, listing_id):
     }
 
     return render(request,"dead_drop/food_listing_form.html",context)
+
+@login_required
+@require_POST
+def delete_listing(request, listing_id):
+    listing = get_object_or_404(FoodListing, pk=listing_id)
+
+    deleted_count, _ = FoodListing.objects.filter(
+        pk=listing_id,
+        owner=request.user,
+        status=ListingStatus.AVAILABLE
+    ).delete()
+
+    if deleted_count:
+        messages.success(request, f"{listing.food_name} berhasil kamu delete.")
+    else:
+        messages.error(request, "Listing makanan ini tidak bisa di delete")
+
+    return redirect("dead_drop:listing_board")
