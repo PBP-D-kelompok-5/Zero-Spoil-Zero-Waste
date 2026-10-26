@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 from django.urls import reverse
+from urllib.parse import parse_qs, urlsplit
 
 from .models import FoodListing, ListingStatus
 from .forms import FoodListingForm
@@ -175,3 +176,57 @@ class FoodListingBoardTests(TestCase):
         self.assertNotIn(self.listing_claimed.pk, available_ids)
         self.assertNotIn(self.listing_reserved.pk, reserved_ids)
         self.assertNotIn(self.listing_claimed.pk, claimed_ids)
+
+class FoodListingCreateTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(username="user", password="test_password")
+        self.create_url = reverse("dead_drop:create_listing")
+        self.form_data = {
+            "food_name": "Kangkung",
+            "description": "Kangkung masih segar",
+            "pickup_location": "Depok",
+            "pickup_time": (timezone.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M"),
+            "pickup_notes": "Temui saya di gerbang",
+            "latitude": "-6.200000",
+            "longitude": "106.816666",
+        }
+
+    def test_anonymous_user_redirected_to_login_page(self):
+        response = self.client.get(self.create_url)
+        expected_url = reverse("main:login")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(urlsplit(response.url).path, expected_url)
+        self.assertEqual(parse_qs(urlsplit(response.url).query).get("next"), [self.create_url])
+
+    def test_logged_in_user_can_open_form(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(self.create_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "dead_drop/form.html")
+
+    def test_valid_post_can_create_listing_with_available_status(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.create_url, data=self.form_data)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertEqual(FoodListing.objects.count(), 1)
+
+        listing = FoodListing.objects.get()
+        self.assertEqual(listing.self.owner, self.user)
+        self.assertEqual(listing.status, ListingStatus.AVAILABLE)
+        self.assertIsNone(listing.reserved_by)
+
+    def test_invalid_post_cannot_create_listing(self):
+        self.client.force_login(self.user)
+        invalid_data = self.form_data.copy()
+        invalid_data["food_name"] = ""
+
+        response = self.client.post(self.create_url, data=invalid_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("food_name", response.context["form"].errors)
+        self.assertEqual(FoodListing.objects.count(), 0)
