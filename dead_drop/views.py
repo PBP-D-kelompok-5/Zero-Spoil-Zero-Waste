@@ -108,3 +108,31 @@ def cancel_reserve_listing(request, listing_id):
         messages.error(request, "Reservasi makanan ini tidak bisa dibatalkan")
 
     return redirect("dead_drop:listing_board")
+
+@login_required
+@require_POST
+def claim_listing(request, listing_id):
+    listing = get_object_or_404(FoodListing, pk=listing_id)
+    updated = (
+        FoodListing.objects
+        .filter(
+            pk=listing_id,
+            status=ListingStatus.RESERVED
+        )
+        .filter(
+            Q(owner=request.user)
+        )
+        .update(
+            status=ListingStatus.CLAIMED,
+            updated_at=timezone.now(),
+            claimed_at=timezone.now()
+        )
+    )
+
+    if updated:
+        messages.success(request, f"Reservasi {listing.food_name} berhasil kamu claim.")
+    else:
+        messages.error(request, "Reservasi makanan ini tidak bisa di claim")
+
+    return redirect("dead_drop:listing_board")
+    
