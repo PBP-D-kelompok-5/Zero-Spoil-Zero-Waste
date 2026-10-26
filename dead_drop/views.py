@@ -1,6 +1,9 @@
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 
+from .forms import FoodListingForm
 from .models import FoodListing, ListingStatus
 
 def visible_listing_for(user):
@@ -27,3 +30,25 @@ def listing_board(request):
     }
 
     return render(request, "dead_drop/listing_board.html", context)
+
+@login_required
+def create_listing(request):
+    if request.method == "POST":
+        form = FoodListingForm(request.POST)
+
+        if form.is_valid():
+            listing = form.save(commit=False)
+            listing.owner = request.user
+            listing.save()
+
+            messages.success(request, f"{listing.food_name} berhasil dibagikan di Dead Drop")
+            return redirect("dead_drop:listing_board")
+
+    else:
+        form = FoodListingForm()
+
+    context = {
+        "form": form
+    }
+
+    return render(request, "dead_drop/food_listing_form.html", context)

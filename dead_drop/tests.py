@@ -206,7 +206,7 @@ class FoodListingCreateTests(TestCase):
         response = self.client.get(self.create_url)
 
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "dead_drop/form.html")
+        self.assertTemplateUsed(response, "dead_drop/food_listing_form.html")
 
     def test_valid_post_can_create_listing_with_available_status(self):
         self.client.force_login(self.user)
@@ -216,7 +216,7 @@ class FoodListingCreateTests(TestCase):
         self.assertEqual(FoodListing.objects.count(), 1)
 
         listing = FoodListing.objects.get()
-        self.assertEqual(listing.self.owner, self.user)
+        self.assertEqual(listing.owner, self.user)
         self.assertEqual(listing.status, ListingStatus.AVAILABLE)
         self.assertIsNone(listing.reserved_by)
 

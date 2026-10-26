@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main>
+    <h1>Bagikan Makanan</h1>
+    <p>Bagikan bahan makanan berlebih agar bisa dimanfaatkan orang lain.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+
+        <button type="submit">Publikasikan</button>
+    </form>
+
+    <p>
+        <a href="{% url 'dead_drop:listing_board' %}">Kembali ke Dead Drop</a>
+    </p>
+</main>
+{% endblock %}
