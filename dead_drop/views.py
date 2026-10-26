@@ -135,4 +135,27 @@ def claim_listing(request, listing_id):
         messages.error(request, "Reservasi makanan ini tidak bisa di claim")
 
     return redirect("dead_drop:listing_board")
-    
+
+@login_required
+def edit_listing(request, listing_id):
+    listing = get_object_or_404(FoodListing, pk=listing_id)
+
+    if listing.owner != request.user or listing.status == ListingStatus.CLAIMED:
+        messages.error(request, "Kamu tidak dapat mengedit listing ini.")
+        return redirect("dead_drop:listing_board")
+
+    if request.method == "POST":
+        form = FoodListingForm(request.POST, instance=listing)
+
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"{listing.food_name} berhasil diperbarui.",)
+            return redirect("dead_drop:listing_board")
+    else:
+        form = FoodListingForm(instance=listing)
+
+    context = {
+        "form": form
+    }
+
+    return render(request,"dead_drop/food_listing_form.html",context)
