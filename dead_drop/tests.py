@@ -561,7 +561,7 @@ class FoodListingClaimTests(TestCase):
 
     def test_nonexistent_listing_returns_not_found(self):
         self.client.force_login(self.reserver)
-        missing_url = reverse("dead_drop:claim_listing", kwargs={"listing_id": self.listing_reserved.pk + 1})
+        missing_url = reverse("dead_drop:claim_listing", kwargs={"listing_id": self.listing_claimed.pk + 1})
 
         response = self.client.post(missing_url)
 
