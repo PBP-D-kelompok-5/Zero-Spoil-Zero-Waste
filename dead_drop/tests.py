@@ -337,3 +337,110 @@ class FoodListingReserveTests(TestCase):
         response = self.client.post(missing_url)
 
         self.assertEqual(response.status_code, 404)
+
+class FoodListingCancelReservationTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.owner = user_model.objects.create_user(username="owner", password="test_password")
+        self.reserver = user_model.objects.create_user(username="reserver", password="test_password")
+        self.other_user = user_model.objects.create_user(username="otherUser", password="test_password")
+
+        self.listing = FoodListing.objects.create(
+            owner=self.owner,
+            food_name="Kangkung",
+            description="Masih segar",
+            pickup_location="Depok",
+            pickup_time=timezone.now() + timedelta(days=1),
+            pickup_notes="Temui saya di gerbang",
+            latitude=Decimal("-6.200000"),
+            longitude=Decimal("106.816666"),
+            status= ListingStatus.RESERVED,
+            reserved_by= self.reserver,
+        )
+
+        self.cancel_reserve_url = reverse("dead_drop:cancel_reserve_listing", kwargs={"listing_id": self.listing.pk})
+
+    def test_anonymous_user_redirected_to_login_page(self):
+        response = self.client.get(self.cancel_reserve_url)
+        expected_url = reverse("main:login")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(urlsplit(response.url).path, expected_url)
+        self.assertEqual(parse_qs(urlsplit(response.url).query).get("next"), [self.cancel_reserve_url])
+
+    def test_get_request_is_not_allowed(self):
+        self.client.force_login(self.reserver)
+
+        response = self.client.get(self.cancel_reserve_url)
+
+        self.assertEqual(response.status_code, 405)
+
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, ListingStatus.RESERVED)
+        self.assertEqual(self.listing.reserved_by, self.reserver)
+
+    def test_reserver_can_cancel_own_reservation(self):
+        self.client.force_login(self.reserver)
+        response = self.client.post(self.cancel_reserve_url)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, ListingStatus.AVAILABLE)
+        self.assertIsNone(self.listing.reserved_by)
+
+    def test_owner_can_cancel_reservation(self):
+        self.client.force_login(self.owner)
+        response = self.client.post(self.cancel_reserve_url)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, ListingStatus.AVAILABLE)
+        self.assertIsNone(self.listing.reserved_by)
+
+    def test_other_user_cannot_cancel_reservation(self):
+        self.client.force_login(self.other_user)
+        response = self.client.post(self.cancel_reserve_url)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, ListingStatus.RESERVED)
+        self.assertEqual(self.listing.reserved_by, self.reserver)
+
+    def test_owner_cannot_cancel_claimed_reservation(self):
+        self.listing.status = ListingStatus.CLAIMED
+        self.listing.claimed_at = timezone.now()
+        self.listing.save()
+
+        self.client.force_login(self.owner)
+        response = self.client.post(self.cancel_reserve_url)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, ListingStatus.CLAIMED)
+        self.assertEqual(self.listing.reserved_by, self.reserver)
+
+    def test_reserver_cannot_cancel_claimed_reservation(self):
+        self.listing.status = ListingStatus.CLAIMED
+        self.listing.claimed_at = timezone.now()
+        self.listing.save()
+
+        self.client.force_login(self.reserver)
+        response = self.client.post(self.cancel_reserve_url)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, ListingStatus.CLAIMED)
+        self.assertEqual(self.listing.reserved_by, self.reserver)
+
+    def test_nonexistent_listing_returns_not_found(self):
+        self.client.force_login(self.reserver)
+        missing_url = reverse("dead_drop:cancel_reserve_listing", kwargs={"listing_id": self.listing.pk + 1})
+
+        response = self.client.post(missing_url)
+
+        self.assertEqual(response.status_code, 404)
