@@ -43,7 +43,10 @@ def create_listing(request):
             listing.owner = request.user
             listing.save()
 
-            messages.success(request, f"{listing.food_name} berhasil dibagikan di Dead Drop")
+            messages.success(
+                request,
+                f"{listing.food_name} berhasil dibagikan di Dead Drop.",
+            )
             return redirect("dead_drop:listing_board")
 
     else:
@@ -60,7 +63,7 @@ def create_listing(request):
 def reserve_listing(request, listing_id):
     listing = get_object_or_404(FoodListing, pk=listing_id)
 
-    updated = (
+    updated_count = (
         FoodListing.objects
         .filter(
             pk=listing_id,
@@ -74,10 +77,13 @@ def reserve_listing(request, listing_id):
         )
     )
 
-    if updated:
-        messages.success(request, f"{listing.food_name} berhasil kamu reservasi.")
+    if updated_count:
+        messages.success(
+            request,
+            f"Reservasi untuk {listing.food_name} berhasil dibuat.",
+        )
     else:
-        messages.error(request, "Makanan ini tidak tersedia untuk direservasi")
+        messages.error(request, "Makanan ini tidak dapat direservasi.")
 
     return redirect("dead_drop:listing_board")
 
@@ -86,7 +92,7 @@ def reserve_listing(request, listing_id):
 def cancel_reserve_listing(request, listing_id):
     listing = get_object_or_404(FoodListing, pk=listing_id)
 
-    updated = (
+    updated_count = (
         FoodListing.objects
         .filter(
             pk=listing_id,
@@ -102,10 +108,13 @@ def cancel_reserve_listing(request, listing_id):
         )
     )
 
-    if updated:
-        messages.success(request, f"Reservasi {listing.food_name} berhasil kamu batalkan.")
+    if updated_count:
+        messages.success(
+            request,
+            f"Reservasi untuk {listing.food_name} berhasil dibatalkan.",
+        )
     else:
-        messages.error(request, "Reservasi makanan ini tidak bisa dibatalkan")
+        messages.error(request, "Reservasi ini tidak dapat dibatalkan.")
 
     return redirect("dead_drop:listing_board")
 
@@ -113,26 +122,28 @@ def cancel_reserve_listing(request, listing_id):
 @require_POST
 def claim_listing(request, listing_id):
     listing = get_object_or_404(FoodListing, pk=listing_id)
-    updated = (
+    now = timezone.now()
+    updated_count = (
         FoodListing.objects
         .filter(
             pk=listing_id,
+            owner=request.user,
             status=ListingStatus.RESERVED
-        )
-        .filter(
-            Q(owner=request.user)
         )
         .update(
             status=ListingStatus.CLAIMED,
-            updated_at=timezone.now(),
-            claimed_at=timezone.now()
+            updated_at=now,
+            claimed_at=now
         )
     )
 
-    if updated:
-        messages.success(request, f"Reservasi {listing.food_name} berhasil kamu claim.")
+    if updated_count:
+        messages.success(
+            request,
+            f"{listing.food_name} berhasil ditandai sebagai sudah diklaim.",
+        )
     else:
-        messages.error(request, "Reservasi makanan ini tidak bisa di claim")
+        messages.error(request, "Listing ini tidak dapat diklaim.")
 
     return redirect("dead_drop:listing_board")
 
@@ -141,7 +152,7 @@ def edit_listing(request, listing_id):
     listing = get_object_or_404(FoodListing, pk=listing_id)
 
     if listing.owner != request.user or listing.status == ListingStatus.CLAIMED:
-        messages.error(request, "Kamu tidak dapat mengedit listing ini.")
+        messages.error(request, "Listing ini tidak dapat diedit.")
         return redirect("dead_drop:listing_board")
 
     if request.method == "POST":
@@ -149,7 +160,7 @@ def edit_listing(request, listing_id):
 
         if form.is_valid():
             form.save()
-            messages.success(request, f"{listing.food_name} berhasil diperbarui.",)
+            messages.success(request, f"{listing.food_name} berhasil diperbarui.")
             return redirect("dead_drop:listing_board")
     else:
         form = FoodListingForm(instance=listing)
@@ -172,8 +183,8 @@ def delete_listing(request, listing_id):
     ).delete()
 
     if deleted_count:
-        messages.success(request, f"{listing.food_name} berhasil kamu delete.")
+        messages.success(request, f"{listing.food_name} berhasil dihapus.")
     else:
-        messages.error(request, "Listing makanan ini tidak bisa di delete")
+        messages.error(request, "Listing ini tidak dapat dihapus.")
 
     return redirect("dead_drop:listing_board")
