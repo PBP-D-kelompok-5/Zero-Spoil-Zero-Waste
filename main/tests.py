@@ -1,7 +1,13 @@
-from django.contrib.auth.models import User
+from unittest.mock import patch
+
+from django.contrib.auth.models import AnonymousUser, User
+from django.core.cache import cache
+from django.http import HttpResponse
 from django.template.loader import render_to_string
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import resolve, reverse
+
+from main.auth import LoginThrottle, client_ip, rate_limit
 
 
 class MainPageTest(TestCase):
@@ -143,3 +149,68 @@ class ErrorPageTest(TestCase):
         html = render_to_string('500.html')
         self.assertIn('Terjadi galat', html)
         self.assertIn('href="/"', html)
+
+
+class LoginThrottleTest(TestCase):
+    """Percobaan login gagal dibatasi per (IP, username); login berhasil menghapus penghitungnya."""
+
+    def setUp(self):
+        cache.clear()
+        self.password = 'Kulkas-Bersama-2026'
+        self.user = User.objects.create_user('zombie', password=self.password)
+
+    def attempt(self, password, username='zombie'):
+        return self.client.post(reverse('main:login'), {'username': username, 'password': password})
+
+    def test_locked_after_five_failures_even_with_correct_password(self):
+        for _ in range(LoginThrottle.limit):
+            self.assertEqual(self.attempt('salah').status_code, 200)
+        response = self.attempt(self.password)
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, 'Terlalu banyak percobaan masuk', status_code=429)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_username_is_case_insensitive_and_other_users_unaffected(self):
+        for _ in range(LoginThrottle.limit):
+            self.attempt('salah', username='ZOMBIE')
+        self.assertEqual(self.attempt(self.password).status_code, 429)
+        User.objects.create_user('necro', password=self.password)
+        self.assertRedirects(self.attempt(self.password, username='necro'), reverse('main:show_main'))
+
+    def test_successful_login_resets_counter(self):
+        for _ in range(LoginThrottle.limit - 1):
+            self.attempt('salah')
+        self.assertRedirects(self.attempt(self.password), reverse('main:show_main'))
+        self.client.post(reverse('main:logout'))
+        for _ in range(LoginThrottle.limit - 1):
+            self.attempt('salah')
+        self.assertRedirects(self.attempt(self.password), reverse('main:show_main'))
+
+    def test_blocked_for_without_expiry_marker_uses_full_window(self):
+        request = RequestFactory().post('/login/')
+        throttle = LoginThrottle(request, 'zombie')
+        cache.set(throttle.key, LoginThrottle.limit)
+        self.assertEqual(throttle.blocked_for(), LoginThrottle.window)
+
+
+class RateLimitHelperTest(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.factory = RequestFactory()
+
+    def test_guests_are_limited_per_ip(self):
+        view = rate_limit('test:guest', limit=1)(lambda request: HttpResponse('ok'))
+        request = self.factory.post('/x/')
+        request.user = AnonymousUser()
+        self.assertEqual(view(request).status_code, 200)
+        response = view(request)
+        self.assertEqual(response.status_code, 429)
+        self.assertIn('Retry-After', response)
+
+    def test_missing_ip_and_expired_key_are_handled(self):
+        request = self.factory.post('/x/', REMOTE_ADDR='')
+        self.assertEqual(client_ip(request), 'unknown')
+        with patch('main.auth.cache.incr', side_effect=ValueError):
+            view = rate_limit('test:expired', limit=1)(lambda request: HttpResponse('ok'))
+            request.user = AnonymousUser()
+            self.assertEqual(view(request).status_code, 200)

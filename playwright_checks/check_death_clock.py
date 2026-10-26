@@ -2,16 +2,18 @@
 import re
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.utils import timezone
 
 from death_clock.models import PantryItem
 from death_clock.tests.helpers import make_item
-from playwright_checks.base import MOBILE, XSS, PlaywrightTestCase, expect
+from playwright_checks.base import MOBILE, SMALL, XSS, PlaywrightTestCase, expect
 
 
 class DeathClockCheck(PlaywrightTestCase):
     def setUp(self):
         super().setUp()
+        cache.clear()  # penghitung rate limit
         self.user = self.make_user('necro')
 
     def dialog(self, page):
@@ -184,4 +186,106 @@ class DeathClockCheck(PlaywrightTestCase):
         self.assert_no_horizontal_scroll(page, 'Death Clock modal (HP)')
         dialog.get_by_role('button', name='Tutup').click()
         expect(dialog).to_be_hidden()
+        self.assert_no_problems()
+
+    # ---------- Optimistic UI ----------
+    def test_jumlah_berubah_seketika_sebelum_server_menjawab(self):
+        make_item(self.user, name='Tempe', quantity=2)
+        page = self.new_page(user=self.user)
+        self.open(page, '/death-clock/')
+        held = []
+        page.route('**/quantity/', lambda route: held.append(route))  # tahan request di "jaringan"
+        card = self.card(page, 'Tempe')
+        card.get_by_role('button', name='Tambah jumlah Tempe').click()
+        card.get_by_role('button', name='Tambah jumlah Tempe').click()
+        expect(card.locator('[data-dc-qty]')).to_have_text('4')  # sudah berubah walau server belum menjawab
+        self.assertEqual(PantryItem.objects.get().quantity, 2)
+        self.assertEqual(len(held), 1)  # request dikirim berurutan: yang kedua menunggu yang pertama
+        for _ in range(60):  # lepaskan request satu per satu sampai keduanya tersimpan
+            if held:
+                held.pop(0).continue_()
+            if PantryItem.objects.get().quantity == 4 and not held:
+                break
+            page.wait_for_timeout(50)
+        self.assertEqual(PantryItem.objects.get().quantity, 4)
+        expect(self.card(page, 'Tempe').locator('[data-dc-qty]')).to_have_text('4')
+        self.assert_no_problems()
+
+    def test_aksi_gagal_dikembalikan_seperti_semula(self):
+        make_item(self.user, name='Susu UHT', expires_in=2, quantity=3)
+        page = self.new_page(user=self.user)
+        self.open(page, '/death-clock/')
+        card = self.card(page, 'Susu UHT')
+
+        # Jumlah: server menolak (429) -> kembali ke 3 dan pesan dari server tampil
+        page.route('**/quantity/', lambda route: route.fulfill(
+            status=429, content_type='application/json',
+            body='{"ok": false, "detail": "Terlalu banyak permintaan. Coba lagi dalam 30 detik."}'))
+        card.get_by_role('button', name='Tambah jumlah Susu UHT').click()
+        expect(page.locator('#dc-toasts')).to_contain_text('Terlalu banyak permintaan')
+        expect(self.card(page, 'Susu UHT').locator('[data-dc-qty]')).to_have_text('3')
+
+        # Sudah diolah: kartu langsung hilang, lalu kembali karena server error 500
+        page.route('**/resurrect/', lambda route: route.fulfill(status=500, body='error'))
+        card = self.card(page, 'Susu UHT')
+        card.get_by_role('button', name='✓ Sudah diolah').click()
+        expect(page.locator('#dc-toasts')).to_contain_text('Gagal terhubung ke server')
+        expect(self.card(page, 'Susu UHT')).to_be_visible()
+        expect(page.locator('[data-dc-count="CRITICAL"]')).to_have_text('1')
+        expect(page.locator('[data-dc-count="RESURRECTED"]')).to_have_text('0')
+
+        # Hapus: jaringan putus -> kartu kembali
+        page.route('**/delete/', lambda route: route.abort())
+        delete = self.card(page, 'Susu UHT').get_by_role('button', name='Hapus Susu UHT')
+        delete.click()
+        delete.click()
+        expect(self.card(page, 'Susu UHT')).to_be_visible()
+        expect(page.locator('[data-dc-count="CRITICAL"]')).to_have_text('1')
+        self.assertTrue(PantryItem.objects.filter(name='Susu UHT', quantity=3, resurrected_at=None).exists())
+
+    def test_sudah_diolah_langsung_keluar_dari_daftar(self):
+        make_item(self.user, name='Bayam', expires_in=2)
+        make_item(self.user, name='Wortel', expires_in=9)
+        page = self.new_page(user=self.user)
+        self.open(page, '/death-clock/')
+        held = []
+        page.route('**/resurrect/', lambda route: held.append(route))
+        self.card(page, 'Bayam').get_by_role('button', name='✓ Sudah diolah').click()
+        expect(self.card(page, 'Bayam')).to_have_count(0)  # sebelum server menjawab
+        expect(page.locator('[data-dc-count="RESURRECTED"]')).to_have_text('1')
+        expect(page.locator('[data-dc-visible-count]')).to_have_text('1')
+        while not held:
+            page.wait_for_timeout(50)
+        held.pop().continue_()
+        expect(page.locator('#dc-toasts')).to_contain_text('Bayam berhasil diselamatkan')
+        self.assertIsNotNone(PantryItem.objects.get(name='Bayam').resurrected_at)
+        self.assert_no_problems()
+
+    # ---------- Data contoh ----------
+    def test_isi_data_contoh_dari_inventaris_kosong(self):
+        page = self.new_page(user=self.user)
+        self.open(page, '/death-clock/')
+        self.mark_page(page)
+        page.get_by_role('button', name='Isi 50 bahan contoh').click()
+        expect(page.locator('#dc-toasts')).to_contain_text('50 bahan contoh ditambahkan')
+        expect(page.locator('[data-dc-count="RESURRECTED"]')).to_have_text('5')
+        self.assertEqual(page.locator('[data-dc-item]').count(), 45)  # 5 sisanya ada di filter Resurrected
+        expect(page.get_by_role('button', name='Isi 50 bahan contoh')).to_have_count(0)
+        self.assert_not_reloaded(page)
+        self.assert_no_problems()
+
+    # ---------- Tampilan ----------
+    def test_tampilan_hp_kecil_320(self):
+        make_item(self.user, name='Telur ayam kampung organik ukuran besar', expires_in=10, quantity=12)
+        page = self.new_page(user=self.user, viewport=SMALL)
+        self.open(page, '/death-clock/')
+        self.assert_no_horizontal_scroll(page, 'Death Clock (HP 320)')
+        card = page.locator('[data-dc-item]').first
+        # Teks tombol tetap satu baris (tidak terlipat) dan tidak keluar dari kartu.
+        for name in ('✓ Sudah diolah', 'Ke Graveyard', 'Ubah', 'Hapus Telur ayam kampung organik ukuran besar'):
+            with self.subTest(tombol=name):
+                button = card.get_by_role('button', name=name) if name != 'Ke Graveyard' and name != 'Ubah' else card.get_by_role('link', name=name)
+                box, card_box = button.bounding_box(), card.bounding_box()
+                self.assertLessEqual(box['height'], 40, f'{name} terlipat jadi dua baris')
+                self.assertLessEqual(box['x'] + box['width'], card_box['x'] + card_box['width'] + 0.5, f'{name} keluar dari kartu')
         self.assert_no_problems()

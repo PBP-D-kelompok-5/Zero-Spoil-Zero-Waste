@@ -7,8 +7,14 @@
 
 /* Override jarak ditaruh di sini (dimuat setelah global.css), bukan lewat utility Tailwind,
    supaya hasilnya tidak bergantung pada urutan pemuatan CDN Tailwind. */
-.dc-card { padding: 1.25rem; }
-.dc-card__links { margin-left: -0.5rem; }
+.dc-card { padding: 1.25rem; transition: opacity 0.18s ease, transform 0.18s ease; }
+/* Optimistic UI: kartu langsung memudar keluar saat "Sudah diolah"/"Hapus" diklik. */
+.dc-card.is-leaving { opacity: 0; transform: scale(0.97); pointer-events: none; }
+/* Baris aksi kartu boleh turun ke baris berikutnya di layar sempit (320 px), teks tombol tidak dilipat. */
+.dc-card__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 0.75rem; }
+.dc-card__links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; margin-left: -0.5rem; }
+.dc-card__actions .pn-btn, .dc-card__links .pn-btn { white-space: nowrap; }
+.dc-card__links .pn-btn { padding-inline: 0.5rem; }
 .dc-empty { padding-block: 3rem; text-align: center; }
 .dc-filter { padding: 1rem; }
 .dc-filter .pn-field { margin-bottom: 0; }
@@ -50,7 +56,7 @@
 .dc-stepper__btn:hover:not(:disabled) { background: rgb(var(--pn-crypt-800)); color: rgb(var(--pn-bone-50)); }
 .dc-stepper__btn:focus-visible { outline: 2px solid rgb(var(--pn-ecto-300)); outline-offset: -2px; }
 .dc-stepper__btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.dc-stepper__value { min-width: 4.75rem; padding-inline: 0.375rem; text-align: center; font-size: 0.875rem; font-weight: 600; }
+.dc-stepper__value { min-width: 4.75rem; padding-inline: 0.375rem; text-align: center; font-size: 0.875rem; font-weight: 600; white-space: nowrap; }
 
 /* ---------- Tombol "Sudah diolah" (warna Hex = Resurrected) ---------- */
 .dc-btn-resurrect {
@@ -101,4 +107,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pn-tone-blood .dc-tile__label::before, .dc-dialog[open], .dc-toast { animation: none; }
+  .dc-card { transition: none; }
 }

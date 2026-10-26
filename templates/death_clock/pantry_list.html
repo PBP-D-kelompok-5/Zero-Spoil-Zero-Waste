@@ -75,5 +75,6 @@
 {% endblock content %}
 
 {% block scripts %}
-<script src="{% static 'death_clock/death_clock.js' %}" defer></script>
+{# ES module: death_clock.js memuat modules/*.js (api, ui, list, modal, actions) #}
+<script type="module" src="{% static 'death_clock/death_clock.js' %}"></script>
 {% endblock scripts %}

@@ -8,6 +8,7 @@ urlpatterns = [
     path('', views.pantry_list, name='pantry_list'),
     path('add/', views.item_create, name='item_create'),
     path('bulk-add/', views.item_bulk_create, name='item_bulk_create'),
+    path('demo-data/', views.item_seed_demo, name='item_seed_demo'),
     path('<int:pk>/edit/', views.item_update, name='item_update'),
     path('<int:pk>/quantity/', views.item_quantity, name='item_quantity'),
     path('<int:pk>/resurrect/', views.item_resurrect, name='item_resurrect'),

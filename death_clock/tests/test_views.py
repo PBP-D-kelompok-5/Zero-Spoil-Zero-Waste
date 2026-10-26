@@ -1,18 +1,17 @@
 from pathlib import Path
 
 from django.apps import apps
-from django.test import TestCase
 from django.urls import reverse
 
 from death_clock.models import Category, PantryItem, Storage, Unit
-from death_clock.tests.helpers import AJAX, days, make_item, make_user, today
+from death_clock.tests.helpers import AJAX, DeathClockTestCase, days, make_item, make_user, today
 
 
 def url(name, *args):
     return reverse(f'death_clock:{name}', args=args)
 
 
-class GuestAccessTest(TestCase):
+class GuestAccessTest(DeathClockTestCase):
     """Inventaris bersifat privat: tamu hanya melihat penjelasan modul."""
 
     def test_guest_sees_teaser_with_login_link(self):
@@ -38,7 +37,7 @@ class GuestAccessTest(TestCase):
         self.assertTrue(PantryItem.objects.filter(pk=item.pk).exists())
 
 
-class ListViewTest(TestCase):
+class ListViewTest(DeathClockTestCase):
     def setUp(self):
         self.user = make_user()
         self.client.force_login(self.user)
@@ -59,7 +58,7 @@ class ListViewTest(TestCase):
         self.assertEqual(self.names(response), ['Bayam', 'Susu UHT', 'Beras'])
         self.assertNotContains(response, 'Punya orang lain')
         self.assertEqual(response.context['counts']['ACTIVE'], 3)
-        self.assertContains(response, '1 bahan flatlining')
+        self.assertContains(response, '<span data-dc-alert-count>1</span> bahan flatlining')
 
     def test_cards_link_active_items_to_graveyard(self):
         move_url = lambda item: reverse('graveyard:move_from_death_clock', args=[item.pk])
@@ -113,7 +112,7 @@ class ListViewTest(TestCase):
         self.assertEqual(self.client.get(url('item_json', other.pk)).status_code, 404)
 
 
-class CreateViewTest(TestCase):
+class CreateViewTest(DeathClockTestCase):
     def setUp(self):
         self.user = make_user()
         self.client.force_login(self.user)
@@ -164,7 +163,7 @@ class CreateViewTest(TestCase):
         self.assertEqual(self.client.post(url('item_bulk_create'), {**payload, 'names': ''}, **AJAX).status_code, 400)
 
 
-class ItemActionTest(TestCase):
+class ItemActionTest(DeathClockTestCase):
     def setUp(self):
         self.user = make_user()
         self.client.force_login(self.user)
@@ -186,7 +185,7 @@ class ItemActionTest(TestCase):
     def test_quantity_steps_and_floor(self):
         response = self.client.post(url('item_quantity', self.item.pk), {'delta': '1'}, **AJAX)
         self.assertEqual(response.json()['item']['quantity'], 3)
-        self.assertIn('3 <span', response.json()['html'])
+        self.assertIn('<span data-dc-qty>3</span>', response.json()['html'])
         for _ in range(5):
             self.client.post(url('item_quantity', self.item.pk), {'delta': '-1'}, **AJAX)
         self.item.refresh_from_db()
@@ -220,7 +219,7 @@ class ItemActionTest(TestCase):
         self.assertEqual((self.other.name, self.other.quantity, self.other.resurrected_at), ('Ayam tetangga', 1, None))
 
 
-class IntegrationTest(TestCase):
+class IntegrationTest(DeathClockTestCase):
     def test_admin_changelist_shows_status(self):
         from django.contrib.auth.models import User
         admin = User.objects.create_superuser('admin', password='Admin-Kulkas-2026')
@@ -235,7 +234,7 @@ class IntegrationTest(TestCase):
         self.assertContains(response, 'Buka Death Clock')
 
 
-class ModuleLayoutTest(TestCase):
+class ModuleLayoutTest(DeathClockTestCase):
     """Template & static Death Clock hanya ada di templates/death_clock/ dan static/death_clock/ (folder utama).
 
     Salinan di dalam folder app membuat lokal dan PWS memakai file berbeda: template diambil dari
@@ -250,3 +249,97 @@ class ModuleLayoutTest(TestCase):
                     (app_dir / folder).exists(),
                     f'Hapus death_clock/{folder}/; versi yang dipakai ada di {folder}/death_clock/.',
                 )
+
+
+class SeedDemoViewTest(DeathClockTestCase):
+    """Tombol "Isi data contoh": hanya untuk inventaris kosong milik pengguna yang login."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = make_user()
+
+    def test_guest_cannot_seed(self):
+        self.assertRedirects(self.client.post(url('item_seed_demo')), f"{reverse('main:login')}?next={url('item_seed_demo')}")
+        self.assertEqual(self.client.post(url('item_seed_demo'), **AJAX).status_code, 401)
+        self.assertFalse(PantryItem.objects.exists())
+
+    def test_get_not_allowed(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(url('item_seed_demo')).status_code, 405)
+
+    def test_empty_inventory_shows_button_and_seeds_fifty_items(self):
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get(url('pantry_list')), 'Isi 50 bahan contoh')
+        response = self.client.post(url('item_seed_demo'), **AJAX)
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertIn('50 bahan contoh ditambahkan', data['message'])
+        self.assertEqual(data['counts']['ACTIVE'] + data['counts']['RESURRECTED'], 50)
+        self.assertEqual(data['counts']['RESURRECTED'], 5)
+        self.assertNotContains(self.client.get(url('pantry_list')), 'bahan contoh')
+
+    def test_non_empty_inventory_is_refused(self):
+        self.client.force_login(self.user)
+        make_item(self.user, 'Data asli')
+        response = self.client.post(url('item_seed_demo'), **AJAX)
+        self.assertEqual(response.status_code, 409)
+        self.assertIn('masih kosong', response.json()['detail'])
+        response = self.client.post(url('item_seed_demo'), follow=True)
+        self.assertRedirects(response, url('pantry_list'))
+        self.assertContains(response, 'masih kosong')
+        self.assertEqual(PantryItem.objects.filter(user=self.user).count(), 1)
+
+    def test_seed_is_per_user(self):
+        other = make_user('tetangga')
+        make_item(other, 'Punya tetangga')
+        self.client.force_login(self.user)
+        self.client.post(url('item_seed_demo'), **AJAX)
+        self.assertEqual(PantryItem.objects.filter(user=other).count(), 1)
+        self.assertEqual(PantryItem.objects.filter(user=self.user).count(), 50)
+
+
+class RateLimitTest(DeathClockTestCase):
+    """Endpoint yang mengubah data dibatasi per pengguna per menit (main.auth.rate_limit)."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = make_user()
+        self.client.force_login(self.user)
+        self.bulk = {'names': 'bayam', 'category': Category.VEG, 'storage': Storage.FRIDGE, 'purchase_date': today().isoformat()}
+
+    def test_bulk_add_limited_to_ten_per_minute(self):
+        for _ in range(10):
+            self.assertEqual(self.client.post(url('item_bulk_create'), self.bulk, **AJAX).status_code, 201)
+        response = self.client.post(url('item_bulk_create'), self.bulk, **AJAX)
+        self.assertEqual(response.status_code, 429)
+        self.assertIn('Terlalu banyak permintaan', response.json()['detail'])
+        self.assertGreater(int(response['Retry-After']), 0)
+        page = self.client.post(url('item_bulk_create'), self.bulk)
+        self.assertEqual(page.status_code, 429)
+        self.assertTemplateUsed(page, '429.html')
+        self.assertEqual(PantryItem.objects.filter(user=self.user).count(), 10)
+
+    def test_get_requests_are_not_counted(self):
+        for _ in range(12):
+            self.assertEqual(self.client.get(url('item_bulk_create'), **AJAX).status_code, 200)
+        self.assertEqual(self.client.post(url('item_bulk_create'), self.bulk, **AJAX).status_code, 201)
+
+    def test_write_actions_share_sixty_per_minute(self):
+        item = make_item(self.user)
+        for _ in range(60):
+            self.assertEqual(self.client.post(url('item_quantity', item.pk), {'delta': '1'}, **AJAX).status_code, 200)
+        self.assertEqual(self.client.post(url('item_resurrect', item.pk), **AJAX).status_code, 429)
+        item.refresh_from_db()
+        self.assertEqual((item.quantity, item.resurrected_at), (61, None))
+
+    def test_limit_is_per_user(self):
+        for _ in range(11):
+            self.client.post(url('item_bulk_create'), self.bulk, **AJAX)
+        self.client.force_login(make_user('tetangga'))
+        self.assertEqual(self.client.post(url('item_bulk_create'), self.bulk, **AJAX).status_code, 201)
+
+    def test_seed_limited_to_three_per_minute(self):
+        for _ in range(3):
+            self.assertEqual(self.client.post(url('item_seed_demo'), **AJAX).status_code, 201)
+            PantryItem.objects.filter(user=self.user).delete()
+        self.assertEqual(self.client.post(url('item_seed_demo'), **AJAX).status_code, 429)
