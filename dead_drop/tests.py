@@ -807,6 +807,13 @@ class FoodListingDeleteTests(TestCase):
         self.assertRedirects(response, reverse("dead_drop:listing_board"))
         self.assertTrue(FoodListing.objects.filter(pk=self.listing_available.pk).exists())
 
+    def test_reserver_cannot_delete_reserved_listing(self):
+        self.client.force_login(self.reserver)
+        response = self.client.post(self.delete_reserved_url)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertTrue(FoodListing.objects.filter(pk=self.listing_reserved.pk).exists())
+
     def test_owner_cannot_delete_reserved_listing(self):
         self.client.force_login(self.owner)
         response = self.client.post(self.delete_reserved_url)
