@@ -735,3 +735,96 @@ class FoodListingEditTests(TestCase):
         response = self.client.post(missing_url)
 
         self.assertEqual(response.status_code, 404)
+
+class FoodListingDeleteTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.owner = user_model.objects.create_user(username="owner", password="test_password")
+        self.reserver = user_model.objects.create_user(username="reservationMaker", password="test_password")
+        self.other_user = user_model.objects.create_user(username="otherUser", password="test_password")
+
+        self.listing_available = FoodListing.objects.create(**self.valid_listing_data())
+
+        reserved_data = self.valid_listing_data()
+        reserved_data["reserved_by"] = self.reserver
+        reserved_data["status"] = ListingStatus.RESERVED
+        self.listing_reserved = FoodListing.objects.create(**reserved_data)
+
+        claimed_data = self.valid_listing_data()
+        claimed_data["reserved_by"] = self.reserver
+        claimed_data["status"] = ListingStatus.CLAIMED
+        claimed_data["claimed_at"] = timezone.now()
+        self.listing_claimed = FoodListing.objects.create(**claimed_data)
+
+        self.delete_available_url = reverse("dead_drop:delete_listing", kwargs={"listing_id": self.listing_available.pk})
+        self.delete_reserved_url = reverse("dead_drop:delete_listing", kwargs={"listing_id": self.listing_reserved.pk})
+        self.delete_claimed_url = reverse("dead_drop:delete_listing", kwargs={"listing_id": self.listing_claimed.pk})
+
+    def valid_listing_data(self):
+        data = {
+            "owner": self.owner,
+            "food_name": "Kangkung",
+            "description": "Kangkung tersimpan dengan baik",
+            "pickup_location": "Depok",
+            "pickup_time": timezone.now() + timedelta(days=1),
+            "pickup_notes": "Temui saya di gerbang",
+            "latitude": Decimal("-6.200000"),
+            "longitude": Decimal("106.816666"),
+        }
+
+        return data
+
+    def test_anonymous_user_redirected_to_login_page(self):
+        response = self.client.get(self.delete_available_url)
+        expected_url = reverse("main:login")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(urlsplit(response.url).path, expected_url)
+        self.assertEqual(parse_qs(urlsplit(response.url).query).get("next"), [self.delete_available_url])
+
+    def test_get_request_is_not_allowed(self):
+        self.client.force_login(self.reserver)
+
+        response = self.client.get(self.delete_reserved_url)
+
+        self.assertEqual(response.status_code, 405)
+
+        self.listing_reserved.refresh_from_db()
+        self.assertEqual(self.listing_reserved.status, ListingStatus.RESERVED)
+        self.assertEqual(self.listing_reserved.reserved_by, self.reserver)
+
+    def test_owner_can_delete_available_listing(self):
+        self.client.force_login(self.owner)
+        response = self.client.post(self.delete_available_url)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertFalse(FoodListing.objects.filter(pk=self.listing_available.pk).exists())
+
+    def test_non_owner_cannot_delete_listing(self):
+        self.client.force_login(self.other_user)
+        response = self.client.post(self.delete_available_url)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertFalse(FoodListing.objects.filter(pk=self.listing_available.pk).exists())
+
+    def test_owner_cannot_delete_reserved_listing(self):
+        self.client.force_login(self.owner)
+        response = self.client.post(self.delete_reserved_url)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertTrue(FoodListing.objects.filter(pk=self.listing_reserved.pk).exists())
+
+    def test_owner_cannot_delete_claimed_listing(self):
+        self.client.force_login(self.owner)
+        response = self.client.post(self.delete_claimed_url)
+
+        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertTrue(FoodListing.objects.filter(pk=self.listing_claimed.pk).exists())
+
+    def test_nonexistent_listing_returns_not_found(self):
+        self.client.force_login(self.owner)
+        missing_url = reverse("dead_drop:delete_listing", kwargs={"listing_id": self.listing_claimed.pk + 1})
+
+        response = self.client.post(missing_url)
+
+        self.assertEqual(response.status_code, 404)
