@@ -193,6 +193,22 @@ class FoodListingBoardTests(TestCase):
         self.assertEqual(marker_ids, {self.listing_available.pk, self.listing_reserved.pk})
         self.assertNotIn(self.listing_claimed.pk, marker_ids)
 
+    def test_board_renders_map_container_and_marker_data(self):
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="dead-drop-map"')
+        self.assertContains(response, 'id="dead-drop-map-markers"')
+
+    def test_board_loads_map_stylesheet_and_script(self):
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "leaflet.css")
+        self.assertContains(response, "dead_drop/dead_drop.css")
+        self.assertContains(response, "leaflet.js")
+        self.assertContains(response, "dead_drop/dead_drop_map.js")
+
 class FoodListingCreateTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
