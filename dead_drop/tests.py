@@ -177,6 +177,23 @@ class FoodListingBoardTests(TestCase):
         self.assertNotIn(self.listing_reserved.pk, reserved_ids)
         self.assertNotIn(self.listing_claimed.pk, claimed_ids)
 
+    def test_anonymous_map_markers_include_only_available_listings(self):
+        response = self.client.get(reverse("dead_drop:listing_board"))
+        self.assertEqual(response.status_code, 200)
+
+        marker_ids = {marker["listing_id"] for marker in response.context["map_markers"]}
+        self.assertEqual(marker_ids, {self.listing_available.pk})
+
+
+    def test_owner_map_markers_include_reserved_but_exclude_claimed(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+        self.assertEqual(response.status_code, 200)
+
+        marker_ids = {marker["listing_id"] for marker in response.context["map_markers"]}
+        self.assertEqual(marker_ids, {self.listing_reserved.pk})
+        self.assertNotIn(self.listing_claimed.pk, marker_ids)
+
 class FoodListingCreateTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
