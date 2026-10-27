@@ -24,11 +24,28 @@ def visible_listing_for(user):
 
 def listing_board(request):
     queryset = visible_listing_for(request.user).select_related("owner", "reserved_by")
+    available_listings = queryset.filter(status=ListingStatus.AVAILABLE)
+    reserved_listings = queryset.filter(status=ListingStatus.RESERVED)
+    claimed_listings = queryset.filter(status=ListingStatus.CLAIMED)
+
+    map_listings = list(available_listings) + list(reserved_listings)
+    map_markers = [
+        {
+            "listing_id": listing.pk,
+            "food_name": listing.food_name,
+            "pickup_location": listing.pickup_location,
+            "latitude": float(listing.latitude),
+            "longitude": float(listing.longitude),
+            "status": listing.status,
+        }
+        for listing in map_listings
+    ]
 
     context = {
-        "available_listings": queryset.filter(status=ListingStatus.AVAILABLE),
-        "reserved_listings": queryset.filter(status=ListingStatus.RESERVED),
-        "claimed_listings": queryset.filter(status=ListingStatus.CLAIMED),
+        "available_listings": available_listings,
+        "reserved_listings": reserved_listings,
+        "claimed_listings": claimed_listings,
+        "map_markers": map_markers,
     }
 
     return render(request, "dead_drop/listing_board.html", context)
