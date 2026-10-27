@@ -1,6 +1,9 @@
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import Mock, patch
 
+from django.core.cache import cache
+from requests.exceptions import Timeout
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -867,3 +870,93 @@ class FoodListingDeleteTests(TestCase):
         response = self.client.post(missing_url)
 
         self.assertEqual(response.status_code, 404)
+
+class FoodListingGeocodingTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username="geocoder",
+            password="test_password",
+        )
+        self.client.force_login(self.user)
+        self.url = reverse("dead_drop:geocode_location")
+        cache.clear()
+
+    def test_rejects_empty_search_query(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
+
+    @patch("dead_drop.views.requests.get")
+    def test_returns_coordinates_for_found_location(self, mock_get):
+        api_response = Mock()
+        api_response.json.return_value = [{
+            "lat": "-6.4025",
+            "lon": "106.7942",
+            "display_name": "Depok, Jawa Barat, Indonesia",
+        }]
+        mock_get.return_value = api_response
+
+        response = self.client.get(self.url, {"q": "Depok"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["latitude"], -6.4025)
+        self.assertEqual(response.json()["longitude"], 106.7942)
+        self.assertEqual(
+            response.json()["display_name"],
+            "Depok, Jawa Barat, Indonesia",
+        )
+        api_response.raise_for_status.assert_called_once()
+
+    @patch("dead_drop.views.requests.get")
+    def test_returns_not_found_when_location_does_not_exist(self, mock_get):
+        api_response = Mock()
+        api_response.json.return_value = []
+        mock_get.return_value = api_response
+
+        response = self.client.get(self.url, {"q": "tempat yang tidak ada"})
+
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("error", response.json())
+
+    @patch("dead_drop.views.requests.get", side_effect=Timeout)
+    def test_handles_nominatim_timeout(self, mock_get):
+        response = self.client.get(self.url, {"q": "Depok"})
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("error", response.json())
+
+    @patch("dead_drop.views.requests.get")
+    def test_caches_successful_location_search(self, mock_get):
+        api_response = Mock()
+        api_response.json.return_value = [{
+            "lat": "-6.4025",
+            "lon": "106.7942",
+            "display_name": "Depok, Jawa Barat, Indonesia",
+        }]
+        mock_get.return_value = api_response
+
+        first_response = self.client.get(self.url, {"q": "Depok"})
+        second_response = self.client.get(self.url, {"q": "  Depok  "})
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        mock_get.assert_called_once()
+
+    @patch("dead_drop.views.requests.get")
+    def test_limits_uncached_requests_to_one_per_second(self, mock_get):
+        api_response = Mock()
+        api_response.json.return_value = [{
+            "lat": "-6.4025",
+            "lon": "106.7942",
+            "display_name": "Depok, Jawa Barat, Indonesia",
+        }]
+        mock_get.return_value = api_response
+
+        first_response = self.client.get(self.url, {"q": "Depok"})
+        second_response = self.client.get(self.url, {"q": "Beji, Depok"})
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 429)
+        mock_get.assert_called_once()
