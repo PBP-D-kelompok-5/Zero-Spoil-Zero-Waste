@@ -20,6 +20,7 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('grimoire/', include('preservation_grimoire.urls')),
+    path('dead-drop/', include('dead_drop.urls')),
     path('', include('main.urls')),
     path('death-clock/', include('death_clock.urls')),
     path('graveyard/', include('graveyard.urls')),

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dead Drop · Pantry Necromancer{% endblock title %}
+
+{% block extra_head %}
+    {{ block.super }}
+    {% if active_status != 'claimed' %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    {% endif %}
+    <link rel="stylesheet" href="{% static 'dead_drop/dead_drop.css' %}" />
+{% endblock extra_head %}
+
+{% block content %}
+<div class="pn-container dd-page py-10 md:py-14">
+    <header class="dd-page__header">
+        <div class="max-w-2xl">
+            <span class="pn-badge pn-tone-frost mb-4">Modul 3 · The Dead Drop</span>
+            <h1 class="pn-display">Berbagi bahan, <span class="italic text-frost-400">dekatkan kebaikan.</span></h1>
+            <p class="pn-lead mt-4">Temukan bahan makanan berlebih di sekitar dan bantu agar tetap bermanfaat.</p>
+        </div>
+        {% if user.is_authenticated %}
+            <a class="pn-btn pn-btn--primary" href="{% url 'dead_drop:create_listing' %}">+ Bagikan makanan</a>
+        {% else %}
+            <a class="pn-btn pn-btn--primary" href="{% url 'main:login' %}?next={% url 'dead_drop:create_listing' %}">Masuk untuk berbagi</a>
+        {% endif %}
+    </header>
+
+    {% include "dead_drop/partials/listing_board_content.html" %}
+</div>
+{% endblock content %}
+
+{% block scripts %}
+    {{ block.super }}
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js" integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg" crossorigin="anonymous"></script>
+    {% if active_status != 'claimed' %}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="{% static 'dead_drop/dead_drop_map.js' %}"></script>
+    {% endif %}
+{% endblock scripts %}

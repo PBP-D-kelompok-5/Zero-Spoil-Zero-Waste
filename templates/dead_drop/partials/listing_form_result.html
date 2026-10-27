@@ -1,0 +1,11 @@
+<div id="listing-form-container" class="dd-form-result">
+    {% if success %}
+        <div class="pn-alert pn-tone-ecto" role="status">
+            <h2 class="font-semibold">{{ message }}</h2>
+            {% if listing %}<p class="mt-2 pn-muted">{{ listing.food_name }} · {{ listing.pickup_location }}</p>{% endif %}
+        </div>
+    {% else %}
+        <div class="pn-alert pn-tone-blood" role="alert">{{ message }}</div>
+    {% endif %}
+    <a class="pn-btn pn-btn--secondary mt-5" href="{% url 'dead_drop:listing_board' %}">Kembali ke Dead Drop</a>
+</div>

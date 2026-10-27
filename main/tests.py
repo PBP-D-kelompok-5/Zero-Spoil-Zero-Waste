@@ -41,12 +41,24 @@ class MainPageTest(TestCase):
             'recipe_alchemist:recipe_list',
             'graveyard:graveyard_list',
             'preservation_grimoire:grimoire_list',
+            'dead_drop:listing_board',
         ]:
             self.assertContains(response, f'href="{reverse(url_name)}"')
 
-    def test_only_unfinished_module_is_coming_soon(self):
+    def test_dead_drop_module_is_open_from_the_homepage(self):
         response = self.client.get(reverse('main:show_main'))
-        self.assertContains(response, 'Segera hadir', count=1)
+        self.assertContains(response, 'Buka Dead Drop →')
+        self.assertNotContains(response, 'Segera hadir')
+
+    def test_navbar_dead_drop_links_to_module(self):
+        response = self.client.get(reverse('main:show_main'))
+        dead_drop_url = reverse('dead_drop:listing_board')
+
+        self.assertContains(
+            response,
+            f'href="{dead_drop_url}" class="pn-nav__link"',
+            count=2,
+        )
 
     def test_navbar_grimoire_links_to_module(self):
         response = self.client.get(reverse('main:show_main'))
