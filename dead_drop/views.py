@@ -1,9 +1,15 @@
+import hashlib
+
+import requests
+from django.conf import settings
+from django.core.cache import cache
+from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 
 from .forms import FoodListingForm
 from .models import FoodListing, ListingStatus
@@ -49,6 +55,104 @@ def listing_board(request):
     }
 
     return render(request, "dead_drop/listing_board.html", context)
+
+@login_required
+@require_GET
+def geocode_location(request):
+    query = " ".join(request.GET.get("q", "").split())
+
+    if not query:
+        return JsonResponse(
+            {"error": "Masukkan alamat atau nama lokasi."},
+            status=400,
+        )
+
+    if len(query) > 200:
+        return JsonResponse(
+            {"error": "Pencarian lokasi maksimal 200 karakter."},
+            status=400,
+        )
+
+    normalized_query = query.casefold()
+    query_hash = hashlib.sha256(
+        normalized_query.encode("utf-8")
+    ).hexdigest()
+    cache_key = f"dead_drop:nominatim:{query_hash}"
+
+    cached_result = cache.get(cache_key)
+
+    if cached_result == {"not_found": True}:
+        return JsonResponse(
+            {"error": "Lokasi tidak ditemukan."},
+            status=404,
+        )
+
+    if cached_result is not None:
+        return JsonResponse(cached_result)
+
+    # Hanya izinkan maksimal satu permintaan yang belum tercache per detik.
+    if not cache.add("dead_drop:nominatim:request_lock", True, timeout=1):
+        return JsonResponse(
+            {"error": "Tunggu sebentar sebelum mencari lokasi lain."},
+            status=429,
+        )
+
+    try:
+        response = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={
+                "q": query,
+                "format": "jsonv2",
+                "limit": 1,
+                "countrycodes": "id",
+            },
+            headers={
+                "User-Agent": settings.NOMINATIM_USER_AGENT,
+                "Accept-Language": "id",
+            },
+            timeout=5,
+        )
+        response.raise_for_status()
+        results = response.json()
+    except (requests.RequestException, ValueError):
+        return JsonResponse(
+            {"error": "Layanan pencarian lokasi sedang tidak tersedia."},
+            status=503,
+        )
+
+    if not results:
+        cache.set(cache_key, {"not_found": True}, timeout=300)
+        return JsonResponse(
+            {"error": "Lokasi tidak ditemukan."},
+            status=404,
+        )
+
+    try:
+        result = {
+            "latitude": float(results[0]["lat"]),
+            "longitude": float(results[0]["lon"]),
+            "display_name": results[0]["display_name"],
+        }
+    except (KeyError, TypeError, ValueError, IndexError):
+        return JsonResponse(
+            {"error": "Respons lokasi dari layanan tidak valid."},
+            status=502,
+        )
+
+    if not (-90 <= result["latitude"] <= 90):
+        return JsonResponse(
+            {"error": "Koordinat latitude dari layanan tidak valid."},
+            status=502,
+        )
+
+    if not (-180 <= result["longitude"] <= 180):
+        return JsonResponse(
+            {"error": "Koordinat longitude dari layanan tidak valid."},
+            status=502,
+        )
+
+    cache.set(cache_key, result, timeout=86400)
+    return JsonResponse(result)
 
 @login_required
 def create_listing(request):

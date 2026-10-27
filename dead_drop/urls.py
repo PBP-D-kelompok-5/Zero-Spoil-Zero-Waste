@@ -12,4 +12,5 @@ urlpatterns = [
     path("<int:listing_id>/claim/", views.claim_listing, name="claim_listing",),
     path("<int:listing_id>/edit/", views.edit_listing, name="edit_listing",),
     path("<int:listing_id>/delete/", views.delete_listing, name="delete_listing",),
+    path("geocode/", views.geocode_location, name="geocode_location"),
 ]

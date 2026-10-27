@@ -17,6 +17,11 @@ load_dotenv()
 
 SPOONACULAR_API_KEY = os.getenv('SPOONACULAR_API_KEY')
 
+NOMINATIM_USER_AGENT = (
+    "PantryNecromancer/1.0 "
+    "(https://github.com/PBP-D-kelompok-5/Zero-Spoil-Zero-Waste)"
+)
+
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.

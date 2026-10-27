@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 
+{% load static %}
+
+{% block scripts %}
+    {{ block.super }}
+    <script src="{% static 'dead_drop/dead_drop_geocode.js' %}"></script>
+{% endblock scripts %}
+
 {% block content %}
 <main>
     <h1>Bagikan Makanan</h1>
@@ -8,6 +15,15 @@
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
+        <button
+            type="button"
+            id="geocode-location"
+            data-geocode-url="{% url 'dead_drop:geocode_location' %}"
+        >
+            Cari koordinat lokasi
+        </button>
+
+        <p id="geocode-result" aria-live="polite"></p>
 
         <button type="submit">Publikasikan</button>
     </form>
