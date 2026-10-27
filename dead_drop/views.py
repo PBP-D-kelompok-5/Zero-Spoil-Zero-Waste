@@ -30,13 +30,22 @@ def visible_listing_for(user):
         )
     )
 
-def listing_board_context(user, message="", success=None):
+def listing_board_context(user, active_status=ListingStatus.AVAILABLE, message="", success=None):
+    if active_status not in ListingStatus.values:
+        active_status = ListingStatus.AVAILABLE
+
     queryset = visible_listing_for(user).select_related("owner", "reserved_by")
     available_listings = queryset.filter(status=ListingStatus.AVAILABLE)
     reserved_listings = queryset.filter(status=ListingStatus.RESERVED)
     claimed_listings = queryset.filter(status=ListingStatus.CLAIMED)
 
-    map_listings = list(available_listings) + list(reserved_listings)
+    if active_status == ListingStatus.AVAILABLE:
+        map_listings = list(available_listings)
+    elif active_status == ListingStatus.RESERVED:
+        map_listings = list(reserved_listings)
+    else:
+        map_listings = []
+
     map_markers = [
         {
             "listing_id": listing.pk,
@@ -49,30 +58,80 @@ def listing_board_context(user, message="", success=None):
         for listing in map_listings
     ]
 
+    if active_status == ListingStatus.AVAILABLE:
+        active_listings = available_listings
+    elif active_status == ListingStatus.RESERVED:
+        active_listings = reserved_listings
+    else:
+        active_listings = claimed_listings
+
+    board_tabs = [
+        {
+            "status": ListingStatus.AVAILABLE,
+            "label": "Tersedia",
+            "description": "Bahan yang siap dijemput",
+            "url": reverse("dead_drop:listing_board"),
+            "count": available_listings.count(),
+        },
+        {
+            "status": ListingStatus.RESERVED,
+            "label": "Reservasi",
+            "description": "Listing milikmu dan reservasimu",
+            "url": reverse("dead_drop:reserved_board"),
+            "count": reserved_listings.count(),
+        },
+        {
+            "status": ListingStatus.CLAIMED,
+            "label": "Riwayat klaim",
+            "description": "Berbagi yang sudah selesai",
+            "url": reverse("dead_drop:claimed_history"),
+            "count": claimed_listings.count(),
+        },
+    ]
+
     return {
         "available_listings": available_listings,
         "reserved_listings": reserved_listings,
         "claimed_listings": claimed_listings,
         "map_markers": map_markers,
+        "board_tabs": board_tabs,
+        "active_status": active_status,
+        "active_listings": active_listings,
         "board_message": message,
         "board_success": success,
     }
 
 
-def render_htmx_board(request, message, success):
+def requested_board_status(request, default=ListingStatus.AVAILABLE):
+    status = request.POST.get("return_status", default)
+    return status if status in ListingStatus.values else default
+
+
+def render_htmx_board(request, message, success, active_status=ListingStatus.AVAILABLE):
     return render(
         request,
         "dead_drop/partials/listing_board_content.html",
-        listing_board_context(request.user, message, success),
+        listing_board_context(request.user, active_status, message, success),
     )
 
 
-def listing_board(request):
+def redirect_to_board(request, default=ListingStatus.AVAILABLE):
+    status = requested_board_status(request, default)
+    route_names = {
+        ListingStatus.AVAILABLE: "dead_drop:listing_board",
+        ListingStatus.RESERVED: "dead_drop:reserved_board",
+        ListingStatus.CLAIMED: "dead_drop:claimed_history",
+    }
+    return redirect(route_names[status])
+
+
+def listing_board(request, status=ListingStatus.AVAILABLE):
     return render(
         request,
         "dead_drop/listing_board.html",
-        listing_board_context(request.user),
+        listing_board_context(request.user, status),
     )
+
 
 @login_required
 @require_GET
@@ -205,7 +264,7 @@ def create_listing(request):
                 )
 
             messages.success(request, message)
-            return redirect("dead_drop:listing_board")
+            return redirect_to_board(request, ListingStatus.AVAILABLE)
     else:
         form = FoodListingForm()
 
@@ -253,14 +312,15 @@ def reserve_listing(request, listing_id):
         message = "Makanan ini tidak dapat direservasi."
 
     if request.headers.get("HX-Request") == "true":
-        return render_htmx_board(request, message, success)
+        active_status = ListingStatus.RESERVED if success else requested_board_status(request)
+        return render_htmx_board(request, message, success, active_status)
 
     if success:
         messages.success(request, message)
-    else:
-        messages.error(request, message)
+        return redirect("dead_drop:reserved_board")
 
-    return redirect("dead_drop:listing_board")
+    messages.error(request, message)
+    return redirect_to_board(request, ListingStatus.AVAILABLE)
 
 @login_required
 @require_POST
@@ -292,14 +352,15 @@ def cancel_reserve_listing(request, listing_id):
         message = "Reservasi ini tidak dapat dibatalkan."
 
     if request.headers.get("HX-Request") == "true":
-        return render_htmx_board(request, message, success)
+        active_status = ListingStatus.AVAILABLE if success else requested_board_status(request, ListingStatus.RESERVED)
+        return render_htmx_board(request, message, success, active_status)
 
     if success:
         messages.success(request, message)
-    else:
-        messages.error(request, message)
+        return redirect("dead_drop:listing_board")
 
-    return redirect("dead_drop:listing_board")
+    messages.error(request, message)
+    return redirect_to_board(request, ListingStatus.RESERVED)
 
 @login_required
 @require_POST
@@ -329,14 +390,15 @@ def claim_listing(request, listing_id):
         message = "Listing ini tidak dapat diklaim."
 
     if request.headers.get("HX-Request") == "true":
-        return render_htmx_board(request, message, success)
+        active_status = ListingStatus.CLAIMED if success else requested_board_status(request, ListingStatus.RESERVED)
+        return render_htmx_board(request, message, success, active_status)
 
     if success:
         messages.success(request, message)
-    else:
-        messages.error(request, message)
+        return redirect("dead_drop:claimed_history")
 
-    return redirect("dead_drop:listing_board")
+    messages.error(request, message)
+    return redirect_to_board(request, ListingStatus.RESERVED)
 
 @login_required
 def edit_listing(request, listing_id):
@@ -354,7 +416,7 @@ def edit_listing(request, listing_id):
             )
 
         messages.error(request, message)
-        return redirect("dead_drop:listing_board")
+        return redirect_to_board(request, ListingStatus.AVAILABLE)
 
     if request.method == "POST":
         form = FoodListingForm(request.POST, instance=listing)
@@ -375,7 +437,7 @@ def edit_listing(request, listing_id):
                 )
 
             messages.success(request, message)
-            return redirect("dead_drop:listing_board")
+            return redirect_to_board(request, ListingStatus.AVAILABLE)
     else:
         form = FoodListingForm(instance=listing)
 
@@ -415,11 +477,13 @@ def delete_listing(request, listing_id):
                 request,
                 f"{listing.food_name} berhasil dihapus.",
                 True,
+                requested_board_status(request),
             )
         return render_htmx_board(
             request,
             "Listing ini tidak dapat dihapus.",
             False,
+            requested_board_status(request),
         )
 
     if deleted_count:
@@ -427,4 +491,4 @@ def delete_listing(request, listing_id):
     else:
         messages.error(request, "Listing ini tidak dapat dihapus.")
 
-    return redirect("dead_drop:listing_board")
+    return redirect_to_board(request, ListingStatus.AVAILABLE)

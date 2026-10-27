@@ -5,7 +5,9 @@
 
 {% block extra_head %}
     {{ block.super }}
+    {% if active_status != 'claimed' %}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    {% endif %}
     <link rel="stylesheet" href="{% static 'dead_drop/dead_drop.css' %}" />
 {% endblock extra_head %}
 
@@ -31,6 +33,8 @@
 {% block scripts %}
     {{ block.super }}
     <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js" integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg" crossorigin="anonymous"></script>
+    {% if active_status != 'claimed' %}
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="{% static 'dead_drop/dead_drop_map.js' %}"></script>
+    {% endif %}
 {% endblock scripts %}

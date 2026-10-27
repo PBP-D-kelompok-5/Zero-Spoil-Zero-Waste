@@ -124,6 +124,10 @@ class FoodListingBoardTests(TestCase):
     def test_anonymous_user_sees_available_listings_only(self):
         response = self.client.get(reverse("dead_drop:listing_board"))
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["active_status"], ListingStatus.AVAILABLE)
+        self.assertEqual(list(response.context["active_listings"]), [self.listing_available])
+        self.assertEqual([tab["count"] for tab in response.context["board_tabs"]], [1, 0, 0])
+        self.assertContains(response, 'aria-current="page"')
 
         available_ids = {listing.pk for listing in response.context["available_listings"]}
         self.assertIn(self.listing_available.pk, available_ids)
@@ -146,6 +150,7 @@ class FoodListingBoardTests(TestCase):
 
         self.assertIn(self.listing_reserved.pk, reserved_ids)
         self.assertIn(self.listing_claimed.pk, claimed_ids)
+        self.assertEqual([tab["count"] for tab in response.context["board_tabs"]], [1, 1, 1])
 
     def test_reservation_maker_can_see_reserved_and_claimed_listings(self):
         self.client.force_login(self.reserved_by)
@@ -195,14 +200,59 @@ class FoodListingBoardTests(TestCase):
         marker_ids = {marker["listing_id"] for marker in response.context["map_markers"]}
         self.assertEqual(marker_ids, {self.listing_available.pk})
 
-    def test_owner_map_markers_include_reserved_but_exclude_claimed(self):
+    def test_owner_available_map_markers_include_available_listings_only(self):
         self.client.force_login(self.owner)
         response = self.client.get(reverse("dead_drop:listing_board"))
         self.assertEqual(response.status_code, 200)
 
         marker_ids = {marker["listing_id"] for marker in response.context["map_markers"]}
-        self.assertEqual(marker_ids, {self.listing_available.pk, self.listing_reserved.pk})
+        self.assertEqual(marker_ids, {self.listing_available.pk})
+        self.assertNotIn(self.listing_reserved.pk, marker_ids)
         self.assertNotIn(self.listing_claimed.pk, marker_ids)
+
+    def test_reserved_page_shows_only_reserved_listings_and_map(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("dead_drop:reserved_board"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["active_status"], ListingStatus.RESERVED)
+        self.assertEqual(list(response.context["active_listings"]), [self.listing_reserved])
+        self.assertContains(response, f'id="listing-card-{self.listing_reserved.pk}"')
+        self.assertNotContains(response, f'id="listing-card-{self.listing_available.pk}"')
+        marker_ids = {marker["listing_id"] for marker in response.context["map_markers"]}
+        self.assertEqual(marker_ids, {self.listing_reserved.pk})
+
+    def test_claimed_history_shows_only_claimed_listings_without_map(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("dead_drop:claimed_history"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["active_status"], ListingStatus.CLAIMED)
+        self.assertEqual(list(response.context["active_listings"]), [self.listing_claimed])
+        self.assertContains(response, f'id="listing-card-{self.listing_claimed.pk}"')
+        self.assertNotContains(response, f'id="listing-card-{self.listing_available.pk}"')
+        self.assertNotContains(response, 'id="dead-drop-map"')
+        self.assertNotContains(response, "leaflet.js")
+        self.assertEqual(response.context["map_markers"], [])
+
+    def test_other_user_private_pages_show_no_other_users_cards(self):
+        self.client.force_login(self.other_user)
+
+        reserved_response = self.client.get(reverse("dead_drop:reserved_board"))
+        history_response = self.client.get(reverse("dead_drop:claimed_history"))
+
+        self.assertEqual(reserved_response.status_code, 200)
+        self.assertEqual(history_response.status_code, 200)
+        self.assertEqual(list(reserved_response.context["active_listings"]), [])
+        self.assertEqual(list(history_response.context["active_listings"]), [])
+        self.assertNotContains(
+            reserved_response,
+            f'id="listing-card-{self.listing_reserved.pk}"',
+        )
+        self.assertNotContains(
+            history_response,
+            f'id="listing-card-{self.listing_claimed.pk}"',
+        )
 
     def test_board_renders_map_container_and_marker_data(self):
         response = self.client.get(reverse("dead_drop:listing_board"))
@@ -236,7 +286,7 @@ class FoodListingBoardTests(TestCase):
 
     def test_owner_sees_htmx_claim_button_for_reserved_listing(self):
         self.client.force_login(self.owner)
-        response = self.client.get(reverse("dead_drop:listing_board"))
+        response = self.client.get(reverse("dead_drop:reserved_board"))
 
         claim_url = reverse(
             "dead_drop:claim_listing",
@@ -249,7 +299,7 @@ class FoodListingBoardTests(TestCase):
 
     def test_reserver_does_not_see_htmx_claim_button_for_reserved_listing(self):
         self.client.force_login(self.reserved_by)
-        response = self.client.get(reverse("dead_drop:listing_board"))
+        response = self.client.get(reverse("dead_drop:reserved_board"))
 
         claim_url = reverse(
             "dead_drop:claim_listing",
@@ -261,7 +311,7 @@ class FoodListingBoardTests(TestCase):
 
     def test_reserver_sees_htmx_cancel_button_for_reserved_listing(self):
         self.client.force_login(self.reserved_by)
-        response = self.client.get(reverse("dead_drop:listing_board"))
+        response = self.client.get(reverse("dead_drop:reserved_board"))
 
         cancel_url = reverse(
             "dead_drop:cancel_reserve_listing",
@@ -271,10 +321,11 @@ class FoodListingBoardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f'hx-post="{cancel_url}"')
         self.assertContains(response, 'hx-target="#dead-drop-board"')
+        self.assertContains(response, "pn-btn pn-btn--danger pn-btn--sm")
 
     def test_owner_sees_htmx_cancel_button_for_reserved_listing(self):
         self.client.force_login(self.owner)
-        response = self.client.get(reverse("dead_drop:listing_board"))
+        response = self.client.get(reverse("dead_drop:reserved_board"))
 
         cancel_url = reverse(
             "dead_drop:cancel_reserve_listing",
@@ -336,7 +387,7 @@ class FoodListingBoardTests(TestCase):
 
     def test_owner_sees_edit_link_for_reserved_listing(self):
         self.client.force_login(self.owner)
-        response = self.client.get(reverse("dead_drop:listing_board"))
+        response = self.client.get(reverse("dead_drop:reserved_board"))
 
         edit_url = reverse(
             "dead_drop:edit_listing",
@@ -489,7 +540,7 @@ class FoodListingReserveTests(TestCase):
         self.client.force_login(self.reserver)
         response = self.client.post(self.reserve_url)
 
-        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertRedirects(response, reverse("dead_drop:reserved_board"))
 
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.status, ListingStatus.RESERVED)
@@ -539,7 +590,7 @@ class FoodListingReserveTests(TestCase):
 
         response = self.client.post(self.reserve_url, data={"reserved_by": self.other_user.pk})
 
-        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertRedirects(response, reverse("dead_drop:reserved_board"))
 
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.status, ListingStatus.RESERVED)
@@ -568,6 +619,7 @@ class FoodListingReserveTests(TestCase):
         )
         self.assertContains(response, "Kangkung")
         self.assertContains(response, "Reservasi untuk Kangkung berhasil dibuat.")
+        self.assertEqual(response.context["active_status"], ListingStatus.RESERVED)
         self.assertEqual(list(response.context["available_listings"]), [])
         self.assertEqual(list(response.context["reserved_listings"]), [self.listing])
 
@@ -658,7 +710,7 @@ class FoodListingCancelReservationTests(TestCase):
         self.client.force_login(self.other_user)
         response = self.client.post(self.cancel_reserve_url)
 
-        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertRedirects(response, reverse("dead_drop:reserved_board"))
 
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.status, ListingStatus.RESERVED)
@@ -672,7 +724,7 @@ class FoodListingCancelReservationTests(TestCase):
         self.client.force_login(self.owner)
         response = self.client.post(self.cancel_reserve_url)
 
-        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertRedirects(response, reverse("dead_drop:reserved_board"))
 
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.status, ListingStatus.CLAIMED)
@@ -686,7 +738,7 @@ class FoodListingCancelReservationTests(TestCase):
         self.client.force_login(self.reserver)
         response = self.client.post(self.cancel_reserve_url)
 
-        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertRedirects(response, reverse("dead_drop:reserved_board"))
 
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.status, ListingStatus.CLAIMED)
@@ -717,6 +769,7 @@ class FoodListingCancelReservationTests(TestCase):
             response,
             "Reservasi untuk Kangkung berhasil dibatalkan.",
         )
+        self.assertEqual(response.context["active_status"], ListingStatus.AVAILABLE)
         self.assertEqual(list(response.context["available_listings"]), [self.listing])
         self.assertEqual(list(response.context["reserved_listings"]), [])
 
@@ -783,7 +836,7 @@ class FoodListingClaimTests(TestCase):
         self.client.force_login(self.owner)
         response = self.client.post(self.claim_url)
 
-        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertRedirects(response, reverse("dead_drop:claimed_history"))
 
         self.listing_reserved.refresh_from_db()
         self.assertEqual(self.listing_reserved.status, ListingStatus.CLAIMED)
@@ -805,6 +858,7 @@ class FoodListingClaimTests(TestCase):
             response,
             "Kangkung berhasil ditandai sebagai sudah diklaim.",
         )
+        self.assertEqual(response.context["active_status"], ListingStatus.CLAIMED)
         self.assertEqual(list(response.context["reserved_listings"]), [])
         self.assertIn(self.listing_reserved, response.context["claimed_listings"])
         marker_ids = {marker["listing_id"] for marker in response.context["map_markers"]}
@@ -819,7 +873,7 @@ class FoodListingClaimTests(TestCase):
         self.client.force_login(self.owner)
         response = self.client.post(self.claim_url)
 
-        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertRedirects(response, reverse("dead_drop:claimed_history"))
 
         self.listing_reserved.refresh_from_db()
         self.assertIsNotNone(self.listing_reserved.claimed_at)
@@ -828,7 +882,7 @@ class FoodListingClaimTests(TestCase):
         self.client.force_login(self.reserver)
         response = self.client.post(self.claim_url)
 
-        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertRedirects(response, reverse("dead_drop:reserved_board"))
 
         self.listing_reserved.refresh_from_db()
         self.assertEqual(self.listing_reserved.status, ListingStatus.RESERVED)
@@ -838,7 +892,7 @@ class FoodListingClaimTests(TestCase):
         self.client.force_login(self.other_user)
         response = self.client.post(self.claim_url)
 
-        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertRedirects(response, reverse("dead_drop:reserved_board"))
 
         self.listing_reserved.refresh_from_db()
         self.assertEqual(self.listing_reserved.status, ListingStatus.RESERVED)
@@ -848,7 +902,7 @@ class FoodListingClaimTests(TestCase):
         self.client.force_login(self.owner)
         response = self.client.post(reverse("dead_drop:claim_listing", kwargs={"listing_id": self.listing_available.pk}))
 
-        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertRedirects(response, reverse("dead_drop:reserved_board"))
 
         self.listing_available.refresh_from_db()
         self.assertEqual(self.listing_available.status, ListingStatus.AVAILABLE)
@@ -859,7 +913,7 @@ class FoodListingClaimTests(TestCase):
         self.client.force_login(self.owner)
         response = self.client.post(reverse("dead_drop:claim_listing", kwargs={"listing_id": self.listing_claimed.pk}))
 
-        self.assertRedirects(response, reverse("dead_drop:listing_board"))
+        self.assertRedirects(response, reverse("dead_drop:reserved_board"))
 
         self.listing_claimed.refresh_from_db()
         self.assertEqual(self.listing_claimed.status, ListingStatus.CLAIMED)
