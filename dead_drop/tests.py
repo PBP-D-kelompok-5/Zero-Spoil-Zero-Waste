@@ -427,6 +427,8 @@ class FoodListingCreateTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "dead_drop/food_listing_form.html")
+        self.assertContains(response, ">Batal</a>")
+        self.assertNotContains(response, "Kembali ke Dead Drop")
 
     def test_valid_post_can_create_listing_with_available_status(self):
         self.client.force_login(self.user)
