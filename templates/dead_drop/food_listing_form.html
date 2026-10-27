@@ -1,21 +1,31 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block title %}{{ form_title }} · Dead Drop{% endblock title %}
+
+{% block extra_head %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'dead_drop/dead_drop.css' %}" />
+{% endblock extra_head %}
+
 {% block scripts %}
     {{ block.super }}
-    <script
-        src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js"
-        integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
-        crossorigin="anonymous"
-    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js" integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg" crossorigin="anonymous"></script>
     <script src="{% static 'dead_drop/dead_drop_geocode.js' %}"></script>
 {% endblock scripts %}
 
 {% block content %}
-    <h1>{{ form_title }}</h1>
-    {% include "dead_drop/partials/listing_form_fragment.html" %}
-
-    <p>
-        <a href="{% url 'dead_drop:listing_board' %}">Kembali ke Dead Drop</a>
-    </p>
-{% endblock %}
+<section class="pn-container flex justify-center py-10 sm:py-14">
+    <div class="w-full max-w-2xl">
+        <a class="pn-link text-sm" href="{% url 'dead_drop:listing_board' %}">← Kembali ke Dead Drop</a>
+        <header class="mb-6 mt-4">
+            <span class="pn-badge pn-tone-frost mb-4">Modul 3 · The Dead Drop</span>
+            <h1 class="pn-heading">{{ form_title }}</h1>
+            <p class="pn-muted mt-2">Bagikan bahan makanan berlebih yang masih layak dan tentukan waktu pengambilan.</p>
+        </header>
+        <div class="pn-card dd-form-card">
+            {% include "dead_drop/partials/listing_form_fragment.html" %}
+        </div>
+    </div>
+</section>
+{% endblock content %}

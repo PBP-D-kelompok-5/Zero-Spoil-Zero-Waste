@@ -1,23 +1,19 @@
 <div id="listing-form-container">
-    <form
-        method="post"
-        hx-post="{{ form_action }}"
-        hx-target="#listing-form-container"
-        hx-swap="outerHTML"
-    >
+    <form method="post" action="{{ form_action }}" class="pn-form" hx-post="{{ form_action }}" hx-target="#listing-form-container" hx-swap="outerHTML">
         {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="pn-alert pn-tone-blood mb-5" role="alert">{{ form.non_field_errors }}</div>
+        {% endif %}
         {{ form.as_p }}
 
-        <button
-            type="button"
-            id="geocode-location"
-            data-geocode-url="{% url 'dead_drop:geocode_location' %}"
-        >
-            Cari koordinat lokasi
-        </button>
+        <div class="dd-geocode-row">
+            <button class="pn-btn pn-btn--secondary pn-btn--sm" type="button" id="geocode-location" data-geocode-url="{% url 'dead_drop:geocode_location' %}">Cari koordinat lokasi</button>
+            <p class="dd-geocode-message" id="geocode-result" aria-live="polite"></p>
+        </div>
 
-        <p id="geocode-result" aria-live="polite"></p>
-
-        <button type="submit">{{ submit_label }}</button>
+        <div class="dd-form-actions">
+            <a class="pn-btn pn-btn--ghost" href="{% url 'dead_drop:listing_board' %}">Batal</a>
+            <button class="pn-btn pn-btn--primary" type="submit">{{ submit_label }}</button>
+        </div>
     </form>
 </div>
