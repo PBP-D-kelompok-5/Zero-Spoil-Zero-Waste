@@ -79,6 +79,14 @@ class FoodListingFormTests(TestCase):
         self.assertNotIn("reserved_by", form.fields)
         self.assertNotIn("status", form.fields)
 
+    def test_pickup_time_uses_datetime_local_widget(self):
+        form = FoodListingForm()
+
+        self.assertEqual(
+            form.fields["pickup_time"].widget.input_type,
+            "datetime-local",
+        )
+
 class FoodListingBoardTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -212,6 +220,132 @@ class FoodListingBoardTests(TestCase):
         self.assertContains(response, "leaflet.js")
         self.assertContains(response, "dead_drop/dead_drop_map.js")
 
+    def test_other_user_sees_htmx_reserve_button_for_available_listing(self):
+        self.client.force_login(self.other_user)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        reserve_url = reverse(
+            "dead_drop:reserve_listing",
+            kwargs={"listing_id": self.listing_available.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'hx-post="{reserve_url}"')
+        self.assertContains(response, 'hx-target="#dead-drop-board"')
+        self.assertContains(response, "htmx.org")
+
+    def test_owner_sees_htmx_claim_button_for_reserved_listing(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        claim_url = reverse(
+            "dead_drop:claim_listing",
+            kwargs={"listing_id": self.listing_reserved.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'hx-post="{claim_url}"')
+        self.assertContains(response, 'hx-target="#dead-drop-board"')
+
+    def test_reserver_does_not_see_htmx_claim_button_for_reserved_listing(self):
+        self.client.force_login(self.reserved_by)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        claim_url = reverse(
+            "dead_drop:claim_listing",
+            kwargs={"listing_id": self.listing_reserved.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, f'hx-post="{claim_url}"')
+
+    def test_reserver_sees_htmx_cancel_button_for_reserved_listing(self):
+        self.client.force_login(self.reserved_by)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        cancel_url = reverse(
+            "dead_drop:cancel_reserve_listing",
+            kwargs={"listing_id": self.listing_reserved.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'hx-post="{cancel_url}"')
+        self.assertContains(response, 'hx-target="#dead-drop-board"')
+
+    def test_owner_sees_htmx_cancel_button_for_reserved_listing(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        cancel_url = reverse(
+            "dead_drop:cancel_reserve_listing",
+            kwargs={"listing_id": self.listing_reserved.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'hx-post="{cancel_url}"')
+        self.assertContains(response, 'hx-target="#dead-drop-board"')
+
+    def test_owner_sees_htmx_delete_form_for_available_listing(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        delete_url = reverse(
+            "dead_drop:delete_listing",
+            kwargs={"listing_id": self.listing_available.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'hx-post="{delete_url}"')
+        self.assertContains(
+            response,
+            f'id="listing-card-{self.listing_available.pk}"',
+        )
+
+    def test_other_user_does_not_see_htmx_delete_form(self):
+        self.client.force_login(self.other_user)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        delete_url = reverse(
+            "dead_drop:delete_listing",
+            kwargs={"listing_id": self.listing_available.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, f'hx-post="{delete_url}"')
+
+    def test_authenticated_user_sees_create_listing_link(self):
+        self.client.force_login(self.other_user)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        create_url = reverse("dead_drop:create_listing")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'href="{create_url}"')
+
+    def test_owner_sees_edit_link_for_available_listing(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        edit_url = reverse(
+            "dead_drop:edit_listing",
+            kwargs={"listing_id": self.listing_available.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'href="{edit_url}"')
+
+    def test_owner_sees_edit_link_for_reserved_listing(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("dead_drop:listing_board"))
+
+        edit_url = reverse(
+            "dead_drop:edit_listing",
+            kwargs={"listing_id": self.listing_reserved.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'href="{edit_url}"')
+
 class FoodListingCreateTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -263,6 +397,52 @@ class FoodListingCreateTests(TestCase):
         response = self.client.post(self.create_url, data=invalid_data)
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn("food_name", response.context["form"].errors)
+        self.assertEqual(FoodListing.objects.count(), 0)
+
+    def test_form_loads_htmx(self):
+        self.client.force_login(self.user)
+        response = self.client.get(self.create_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'hx-post="{self.create_url}"')
+
+    def test_htmx_valid_post_creates_listing(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            self.create_url,
+            data=self.form_data,
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "dead_drop/partials/listing_form_result.html",
+        )
+        self.assertContains(response, "Kangkung berhasil dibagikan")
+
+        listing = FoodListing.objects.get()
+        self.assertEqual(listing.owner, self.user)
+        self.assertEqual(listing.status, ListingStatus.AVAILABLE)
+
+    def test_htmx_invalid_post_returns_form_errors_without_creating_listing(self):
+        self.client.force_login(self.user)
+        invalid_data = self.form_data.copy()
+        invalid_data["food_name"] = ""
+
+        response = self.client.post(
+            self.create_url,
+            data=invalid_data,
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "dead_drop/partials/listing_form_fragment.html",
+        )
         self.assertIn("food_name", response.context["form"].errors)
         self.assertEqual(FoodListing.objects.count(), 0)
 
@@ -373,6 +553,46 @@ class FoodListingReserveTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_htmx_user_can_reserve_available_listing(self):
+        self.client.force_login(self.reserver)
+
+        response = self.client.post(
+            self.reserve_url,
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "dead_drop/partials/listing_board_content.html",
+        )
+        self.assertContains(response, "Kangkung")
+        self.assertContains(response, "Reservasi untuk Kangkung berhasil dibuat.")
+        self.assertEqual(list(response.context["available_listings"]), [])
+        self.assertEqual(list(response.context["reserved_listings"]), [self.listing])
+
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, ListingStatus.RESERVED)
+        self.assertEqual(self.listing.reserved_by, self.reserver)
+
+    def test_htmx_reservation_conflict_does_not_change_existing_reservation(self):
+        self.listing.status = ListingStatus.RESERVED
+        self.listing.reserved_by = self.reserver
+        self.listing.save()
+
+        self.client.force_login(self.other_user)
+        response = self.client.post(
+            self.reserve_url,
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Makanan ini tidak dapat direservasi.")
+
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, ListingStatus.RESERVED)
+        self.assertEqual(self.listing.reserved_by, self.reserver)
+
 class FoodListingCancelReservationTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -480,6 +700,30 @@ class FoodListingCancelReservationTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_htmx_reserver_can_cancel_own_reservation(self):
+        self.client.force_login(self.reserver)
+
+        response = self.client.post(
+            self.cancel_reserve_url,
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "dead_drop/partials/listing_board_content.html",
+        )
+        self.assertContains(
+            response,
+            "Reservasi untuk Kangkung berhasil dibatalkan.",
+        )
+        self.assertEqual(list(response.context["available_listings"]), [self.listing])
+        self.assertEqual(list(response.context["reserved_listings"]), [])
+
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, ListingStatus.AVAILABLE)
+        self.assertIsNone(self.listing.reserved_by)
+
 class FoodListingClaimTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -543,6 +787,33 @@ class FoodListingClaimTests(TestCase):
 
         self.listing_reserved.refresh_from_db()
         self.assertEqual(self.listing_reserved.status, ListingStatus.CLAIMED)
+
+    def test_htmx_owner_can_claim_reserved_listing(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            self.claim_url,
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "dead_drop/partials/listing_board_content.html",
+        )
+        self.assertContains(
+            response,
+            "Kangkung berhasil ditandai sebagai sudah diklaim.",
+        )
+        self.assertEqual(list(response.context["reserved_listings"]), [])
+        self.assertIn(self.listing_reserved, response.context["claimed_listings"])
+        marker_ids = {marker["listing_id"] for marker in response.context["map_markers"]}
+        self.assertNotIn(self.listing_reserved.pk, marker_ids)
+        self.assertContains(response, "Riwayat klaim")
+
+        self.listing_reserved.refresh_from_db()
+        self.assertEqual(self.listing_reserved.status, ListingStatus.CLAIMED)
+        self.assertIsNotNone(self.listing_reserved.claimed_at)
 
     def test_claimed_listing_gets_claimed_at_timestamp(self):
         self.client.force_login(self.owner)
@@ -771,6 +1042,76 @@ class FoodListingEditTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_edit_form_loads_htmx(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(self.edit_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'hx-post="{self.edit_url}"')
+
+    def test_htmx_owner_can_edit_listing(self):
+        self.client.force_login(self.owner)
+        edited_data = self.edited_valid_listing_data()
+
+        response = self.client.post(
+            self.edit_url,
+            data=edited_data,
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "dead_drop/partials/listing_form_result.html",
+        )
+        self.assertContains(response, "Bayam berhasil diperbarui")
+
+        self.listing_available.refresh_from_db()
+        self.assertEqual(self.listing_available.food_name, "Bayam")
+        self.assertEqual(self.listing_available.pickup_location, "Puncak")
+
+    def test_htmx_invalid_edit_returns_errors_without_saving(self):
+        self.client.force_login(self.owner)
+        invalid_data = self.edited_valid_listing_data()
+        invalid_data["pickup_time"] = (
+            timezone.now() - timedelta(days=1)
+        ).strftime("%Y-%m-%d %H:%M")
+
+        response = self.client.post(
+            self.edit_url,
+            data=invalid_data,
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "dead_drop/partials/listing_form_fragment.html",
+        )
+        self.assertIn("pickup_time", response.context["form"].errors)
+
+        self.listing_available.refresh_from_db()
+        self.assertEqual(self.listing_available.food_name, "Kangkung")
+
+    def test_htmx_non_owner_cannot_edit_listing(self):
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(
+            self.edit_url,
+            data=self.edited_valid_listing_data(),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "dead_drop/partials/listing_form_result.html",
+        )
+        self.assertContains(response, "Listing ini tidak dapat diedit.")
+
+        self.listing_available.refresh_from_db()
+        self.assertEqual(self.listing_available.food_name, "Kangkung")
+
 class FoodListingDeleteTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -871,6 +1212,46 @@ class FoodListingDeleteTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_htmx_owner_can_delete_available_listing(self):
+        self.client.force_login(self.owner)
+
+        response = self.client.post(
+            self.delete_available_url,
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "dead_drop/partials/listing_board_content.html",
+        )
+        self.assertContains(response, "Kangkung berhasil dihapus.")
+        self.assertNotIn(
+            self.listing_available.pk,
+            [listing.pk for listing in response.context["available_listings"]],
+        )
+        self.assertFalse(
+            FoodListing.objects.filter(pk=self.listing_available.pk).exists()
+        )
+
+    def test_htmx_non_owner_cannot_delete_listing(self):
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(
+            self.delete_available_url,
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
+            response,
+            "dead_drop/partials/listing_board_content.html",
+        )
+        self.assertContains(response, "Listing ini tidak dapat dihapus.")
+        self.assertTrue(
+            FoodListing.objects.filter(pk=self.listing_available.pk).exists()
+        )
+
 class FoodListingGeocodingTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -960,3 +1341,19 @@ class FoodListingGeocodingTests(TestCase):
         self.assertEqual(first_response.status_code, 200)
         self.assertEqual(second_response.status_code, 429)
         mock_get.assert_called_once()
+
+    @patch("dead_drop.views.requests.get")
+    def test_rounds_geocoded_coordinates_to_six_decimal_places(self, mock_get):
+        api_response = Mock()
+        api_response.json.return_value = [{
+            "lat": "-6.4071942",
+            "lon": "106.8158371",
+            "display_name": "Depok, Jawa Barat, Indonesia",
+        }]
+        mock_get.return_value = api_response
+
+        response = self.client.get(self.url, {"q": "Depok"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["latitude"], -6.407194)
+        self.assertEqual(response.json()["longitude"], 106.815837)
