@@ -6,7 +6,21 @@ from .models import FoodListing
 class FoodListingForm(forms.ModelForm):
     class Meta:
         model = FoodListing
-        fields =  ('food_name','description','pickup_location','pickup_time','pickup_notes','latitude','longitude')
+        fields = (
+            "food_name",
+            "description",
+            "pickup_location",
+            "pickup_time",
+            "pickup_notes",
+            "latitude",
+            "longitude",
+        )
+        widgets = {
+            "pickup_time": forms.DateTimeInput(
+                attrs={"type": "datetime-local"},
+                format="%Y-%m-%dT%H:%M",
+            ),
+        }
 
     def clean_pickup_time(self):
         pickup_time = self.cleaned_data["pickup_time"]

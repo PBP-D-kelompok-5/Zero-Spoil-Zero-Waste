@@ -1,4 +1,5 @@
 import hashlib
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import requests
 from django.conf import settings
@@ -10,6 +11,7 @@ from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
+from django.urls import reverse
 
 from .forms import FoodListingForm
 from .models import FoodListing, ListingStatus
@@ -28,8 +30,8 @@ def visible_listing_for(user):
         )
     )
 
-def listing_board(request):
-    queryset = visible_listing_for(request.user).select_related("owner", "reserved_by")
+def listing_board_context(user, message="", success=None):
+    queryset = visible_listing_for(user).select_related("owner", "reserved_by")
     available_listings = queryset.filter(status=ListingStatus.AVAILABLE)
     reserved_listings = queryset.filter(status=ListingStatus.RESERVED)
     claimed_listings = queryset.filter(status=ListingStatus.CLAIMED)
@@ -47,14 +49,30 @@ def listing_board(request):
         for listing in map_listings
     ]
 
-    context = {
+    return {
         "available_listings": available_listings,
         "reserved_listings": reserved_listings,
         "claimed_listings": claimed_listings,
         "map_markers": map_markers,
+        "board_message": message,
+        "board_success": success,
     }
 
-    return render(request, "dead_drop/listing_board.html", context)
+
+def render_htmx_board(request, message, success):
+    return render(
+        request,
+        "dead_drop/partials/listing_board_content.html",
+        listing_board_context(request.user, message, success),
+    )
+
+
+def listing_board(request):
+    return render(
+        request,
+        "dead_drop/listing_board.html",
+        listing_board_context(request.user),
+    )
 
 @login_required
 @require_GET
@@ -128,12 +146,21 @@ def geocode_location(request):
         )
 
     try:
+        latitude = Decimal(str(results[0]["lat"])).quantize(
+            Decimal("0.000001"),
+            rounding=ROUND_HALF_UP,
+        )
+        longitude = Decimal(str(results[0]["lon"])).quantize(
+            Decimal("0.000001"),
+            rounding=ROUND_HALF_UP,
+        )
+
         result = {
-            "latitude": float(results[0]["lat"]),
-            "longitude": float(results[0]["lon"]),
+            "latitude": float(latitude),
+            "longitude": float(longitude),
             "display_name": results[0]["display_name"],
         }
-    except (KeyError, TypeError, ValueError, IndexError):
+    except (KeyError, TypeError, ValueError, IndexError, InvalidOperation):
         return JsonResponse(
             {"error": "Respons lokasi dari layanan tidak valid."},
             status=502,
@@ -164,18 +191,37 @@ def create_listing(request):
             listing.owner = request.user
             listing.save()
 
-            messages.success(
-                request,
-                f"{listing.food_name} berhasil dibagikan di Dead Drop.",
-            )
-            return redirect("dead_drop:listing_board")
+            message = f"{listing.food_name} berhasil dibagikan di Dead Drop."
 
+            if request.headers.get("HX-Request") == "true":
+                return render(
+                    request,
+                    "dead_drop/partials/listing_form_result.html",
+                    {
+                        "listing": listing,
+                        "message": message,
+                        "success": True,
+                    },
+                )
+
+            messages.success(request, message)
+            return redirect("dead_drop:listing_board")
     else:
         form = FoodListingForm()
 
     context = {
-        "form": form
+        "form": form,
+        "form_action": reverse("dead_drop:create_listing"),
+        "form_title": "Bagikan Makanan",
+        "submit_label": "Publikasikan",
     }
+
+    if request.method == "POST" and request.headers.get("HX-Request") == "true":
+        return render(
+            request,
+            "dead_drop/partials/listing_form_fragment.html",
+            context,
+        )
 
     return render(request, "dead_drop/food_listing_form.html", context)
 
@@ -198,13 +244,21 @@ def reserve_listing(request, listing_id):
         )
     )
 
-    if updated_count:
-        messages.success(
-            request,
-            f"Reservasi untuk {listing.food_name} berhasil dibuat.",
-        )
+    success = bool(updated_count)
+
+    if success:
+        message = f"Reservasi untuk {listing.food_name} berhasil dibuat."
+        listing.refresh_from_db()
     else:
-        messages.error(request, "Makanan ini tidak dapat direservasi.")
+        message = "Makanan ini tidak dapat direservasi."
+
+    if request.headers.get("HX-Request") == "true":
+        return render_htmx_board(request, message, success)
+
+    if success:
+        messages.success(request, message)
+    else:
+        messages.error(request, message)
 
     return redirect("dead_drop:listing_board")
 
@@ -229,13 +283,21 @@ def cancel_reserve_listing(request, listing_id):
         )
     )
 
-    if updated_count:
-        messages.success(
-            request,
-            f"Reservasi untuk {listing.food_name} berhasil dibatalkan.",
-        )
+    success = bool(updated_count)
+
+    if success:
+        message = f"Reservasi untuk {listing.food_name} berhasil dibatalkan."
+        listing.refresh_from_db()
     else:
-        messages.error(request, "Reservasi ini tidak dapat dibatalkan.")
+        message = "Reservasi ini tidak dapat dibatalkan."
+
+    if request.headers.get("HX-Request") == "true":
+        return render_htmx_board(request, message, success)
+
+    if success:
+        messages.success(request, message)
+    else:
+        messages.error(request, message)
 
     return redirect("dead_drop:listing_board")
 
@@ -258,39 +320,83 @@ def claim_listing(request, listing_id):
         )
     )
 
-    if updated_count:
-        messages.success(
-            request,
-            f"{listing.food_name} berhasil ditandai sebagai sudah diklaim.",
-        )
+    success = bool(updated_count)
+
+    if success:
+        message = f"{listing.food_name} berhasil ditandai sebagai sudah diklaim."
+        listing.refresh_from_db()
     else:
-        messages.error(request, "Listing ini tidak dapat diklaim.")
+        message = "Listing ini tidak dapat diklaim."
+
+    if request.headers.get("HX-Request") == "true":
+        return render_htmx_board(request, message, success)
+
+    if success:
+        messages.success(request, message)
+    else:
+        messages.error(request, message)
 
     return redirect("dead_drop:listing_board")
 
 @login_required
 def edit_listing(request, listing_id):
     listing = get_object_or_404(FoodListing, pk=listing_id)
+    is_htmx = request.headers.get("HX-Request") == "true"
 
     if listing.owner != request.user or listing.status == ListingStatus.CLAIMED:
-        messages.error(request, "Listing ini tidak dapat diedit.")
+        message = "Listing ini tidak dapat diedit."
+
+        if is_htmx:
+            return render(
+                request,
+                "dead_drop/partials/listing_form_result.html",
+                {"message": message, "success": False},
+            )
+
+        messages.error(request, message)
         return redirect("dead_drop:listing_board")
 
     if request.method == "POST":
         form = FoodListingForm(request.POST, instance=listing)
 
         if form.is_valid():
-            form.save()
-            messages.success(request, f"{listing.food_name} berhasil diperbarui.")
+            listing = form.save()
+            message = f"{listing.food_name} berhasil diperbarui."
+
+            if is_htmx:
+                return render(
+                    request,
+                    "dead_drop/partials/listing_form_result.html",
+                    {
+                        "listing": listing,
+                        "message": message,
+                        "success": True,
+                    },
+                )
+
+            messages.success(request, message)
             return redirect("dead_drop:listing_board")
     else:
         form = FoodListingForm(instance=listing)
 
     context = {
-        "form": form
+        "form": form,
+        "form_action": reverse(
+            "dead_drop:edit_listing",
+            kwargs={"listing_id": listing.pk},
+        ),
+        "form_title": "Edit listing",
+        "submit_label": "Simpan perubahan",
     }
 
-    return render(request,"dead_drop/food_listing_form.html",context)
+    if request.method == "POST" and is_htmx:
+        return render(
+            request,
+            "dead_drop/partials/listing_form_fragment.html",
+            context,
+        )
+
+    return render(request, "dead_drop/food_listing_form.html", context)
 
 @login_required
 @require_POST
@@ -302,6 +408,19 @@ def delete_listing(request, listing_id):
         owner=request.user,
         status=ListingStatus.AVAILABLE
     ).delete()
+
+    if request.headers.get("HX-Request") == "true":
+        if deleted_count:
+            return render_htmx_board(
+                request,
+                f"{listing.food_name} berhasil dihapus.",
+                True,
+            )
+        return render_htmx_board(
+            request,
+            "Listing ini tidak dapat dihapus.",
+            False,
+        )
 
     if deleted_count:
         messages.success(request, f"{listing.food_name} berhasil dihapus.")

@@ -1,0 +1,23 @@
+<div id="listing-form-container">
+    <form
+        method="post"
+        hx-post="{{ form_action }}"
+        hx-target="#listing-form-container"
+        hx-swap="outerHTML"
+    >
+        {% csrf_token %}
+        {{ form.as_p }}
+
+        <button
+            type="button"
+            id="geocode-location"
+            data-geocode-url="{% url 'dead_drop:geocode_location' %}"
+        >
+            Cari koordinat lokasi
+        </button>
+
+        <p id="geocode-result" aria-live="polite"></p>
+
+        <button type="submit">{{ submit_label }}</button>
+    </form>
+</div>

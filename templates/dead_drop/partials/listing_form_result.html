@@ -1,0 +1,14 @@
+<div id="listing-form-container">
+    {% if success %}
+        <div role="status">
+            <h2>{{ message }}</h2>
+            {% if listing %}
+                <p>{{ listing.food_name }} — {{ listing.pickup_location }}</p>
+            {% endif %}
+        </div>
+    {% else %}
+        <div role="alert">{{ message }}</div>
+    {% endif %}
+
+    <a href="{% url 'dead_drop:listing_board' %}">Kembali ke Dead Drop</a>
+</div>

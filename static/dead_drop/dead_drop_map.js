@@ -68,4 +68,10 @@
     } else {
         initializeDeadDropMap();
     }
+
+    document.addEventListener("htmx:afterSwap", function (event) {
+        if (event.detail.target && event.detail.target.id === "dead-drop-board") {
+            initializeDeadDropMap();
+        }
+    });
 })();

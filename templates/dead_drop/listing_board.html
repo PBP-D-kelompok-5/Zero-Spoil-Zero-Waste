@@ -1,83 +1,23 @@
 {% extends "base.html" %}
 {% load static %}
+
 {% block extra_head %}
     {{ block.super }}
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossorigin=""
-    />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <link rel="stylesheet" href="{% static 'dead_drop/dead_drop.css' %}" />
 {% endblock extra_head %}
 
 {% block content %}
-<main>
     <h1>Dead Drop</h1>
-    <section aria-labelledby="map-heading">
-        <h2 id="map-heading">Peta makanan</h2>
-        <div id="dead-drop-map"></div>
-        {{ map_markers|json_script:"dead-drop-map-markers" }}
-    </section>
-    <p>Papan berbagi bahan makanan di komunitasmu.</p>
-
-    <section>
-        <h2>Tersedia</h2>
-
-        {% for listing in available_listings %}
-            <article>
-                <h3>{{ listing.food_name }}</h3>
-                <p>{{ listing.description }}</p>
-                <p><strong>Lokasi:</strong> {{ listing.pickup_location }}</p>
-                <p><strong>Waktu penjemputan:</strong> {{ listing.pickup_time|date:"d M Y, H:i" }}</p>
-                <p><strong>Catatan:</strong> {{ listing.pickup_notes }}</p>
-                <p><strong>Diposting oleh:</strong> {{ listing.owner }}</p>
-            </article>
-        {% empty %}
-            <p>Belum ada makanan yang tersedia.</p>
-        {% endfor %}
-    </section>
-
-    <section>
-        <h2>Reservasi</h2>
-
-        {% for listing in reserved_listings %}
-            <article>
-                <h3>{{ listing.food_name }}</h3>
-                <p>{{ listing.description }}</p>
-                <p><strong>Lokasi:</strong> {{ listing.pickup_location }}</p>
-                <p><strong>Waktu penjemputan:</strong> {{ listing.pickup_time|date:"d M Y, H:i" }}</p>
-                <p><strong>Direservasi oleh:</strong> {{ listing.reserved_by }}</p>
-            </article>
-        {% empty %}
-            <p>Belum ada makanan yang kamu reservasi atau posting.</p>
-        {% endfor %}
-    </section>
-
-    <section>
-        <h2>Riwayat klaim</h2>
-
-        {% for listing in claimed_listings %}
-            <article>
-                <h3>{{ listing.food_name }}</h3>
-                <p>{{ listing.description }}</p>
-                <p><strong>Lokasi:</strong> {{ listing.pickup_location }}</p>
-                <p><strong>Waktu penjemputan:</strong> {{ listing.pickup_time|date:"d M Y, H:i" }}</p>
-                <p><strong>Waktu diklaim:</strong> {{ listing.claimed_at|date:"d M Y, H:i" }}</p>
-            </article>
-        {% empty %}
-            <p>Belum ada makanan yang kamu klaim atau posting hingga selesai.</p>
-        {% endfor %}
-    </section>
-</main>
+    {% if user.is_authenticated %}
+        <a href="{% url 'dead_drop:create_listing' %}">Bagikan makanan</a>
+    {% endif %}
+    {% include "dead_drop/partials/listing_board_content.html" %}
 {% endblock %}
 
 {% block scripts %}
     {{ block.super }}
-    <script
-        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        crossorigin=""
-    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js" integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="{% static 'dead_drop/dead_drop_map.js' %}"></script>
 {% endblock scripts %}

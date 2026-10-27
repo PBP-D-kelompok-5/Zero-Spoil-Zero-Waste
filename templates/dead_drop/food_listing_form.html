@@ -1,35 +1,21 @@
 {% extends "base.html" %}
-
 {% load static %}
 
 {% block scripts %}
     {{ block.super }}
+    <script
+        src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js"
+        integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
+        crossorigin="anonymous"
+    ></script>
     <script src="{% static 'dead_drop/dead_drop_geocode.js' %}"></script>
 {% endblock scripts %}
 
 {% block content %}
-<main>
-    <h1>Bagikan Makanan</h1>
-    <p>Bagikan bahan makanan berlebih agar bisa dimanfaatkan orang lain.</p>
-
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button
-            type="button"
-            id="geocode-location"
-            data-geocode-url="{% url 'dead_drop:geocode_location' %}"
-        >
-            Cari koordinat lokasi
-        </button>
-
-        <p id="geocode-result" aria-live="polite"></p>
-
-        <button type="submit">Publikasikan</button>
-    </form>
+    <h1>{{ form_title }}</h1>
+    {% include "dead_drop/partials/listing_form_fragment.html" %}
 
     <p>
         <a href="{% url 'dead_drop:listing_board' %}">Kembali ke Dead Drop</a>
     </p>
-</main>
 {% endblock %}

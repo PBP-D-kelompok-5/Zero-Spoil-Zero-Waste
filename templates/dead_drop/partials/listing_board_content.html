@@ -1,0 +1,90 @@
+<div id="dead-drop-board">
+    {% if board_message %}
+        <p role="{% if board_success %}status{% else %}alert{% endif %}">{{ board_message }}</p>
+    {% endif %}
+
+    <section aria-labelledby="map-heading">
+        <h2 id="map-heading">Peta makanan</h2>
+        <div id="dead-drop-map"></div>
+        {{ map_markers|json_script:"dead-drop-map-markers" }}
+    </section>
+    <p>Papan berbagi bahan makanan di komunitasmu.</p>
+
+    <section>
+        <h2>Tersedia</h2>
+        {% for listing in available_listings %}
+            <article id="listing-card-{{ listing.pk }}">
+                <h3>{{ listing.food_name }}</h3>
+                <p>{{ listing.description }}</p>
+                <p><strong>Lokasi:</strong> {{ listing.pickup_location }}</p>
+                <p><strong>Waktu penjemputan:</strong> {{ listing.pickup_time|date:"d M Y, H:i" }}</p>
+                <p><strong>Catatan:</strong> {{ listing.pickup_notes }}</p>
+                <p><strong>Diposting oleh:</strong> {{ listing.owner }}</p>
+
+                {% if user.is_authenticated and listing.owner_id != user.id %}
+                    <form method="post" hx-post="{% url 'dead_drop:reserve_listing' listing_id=listing.pk %}" hx-target="#dead-drop-board" hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <button type="submit">Reservasi</button>
+                    </form>
+                {% endif %}
+
+                {% if user.is_authenticated and listing.owner_id == user.id %}
+                    <a href="{% url 'dead_drop:edit_listing' listing_id=listing.pk %}">Edit listing</a>
+                    <form method="post" hx-post="{% url 'dead_drop:delete_listing' listing_id=listing.pk %}" hx-target="#dead-drop-board" hx-swap="outerHTML" hx-confirm="Yakin ingin menghapus listing ini?">
+                        {% csrf_token %}
+                        <button type="submit">Hapus listing</button>
+                    </form>
+                {% endif %}
+            </article>
+        {% empty %}
+            <p>Belum ada makanan yang tersedia.</p>
+        {% endfor %}
+    </section>
+
+    <section>
+        <h2>Reservasi</h2>
+        {% for listing in reserved_listings %}
+            <article id="listing-card-{{ listing.pk }}">
+                <h3>{{ listing.food_name }}</h3>
+                <p>{{ listing.description }}</p>
+                <p><strong>Lokasi:</strong> {{ listing.pickup_location }}</p>
+                <p><strong>Waktu penjemputan:</strong> {{ listing.pickup_time|date:"d M Y, H:i" }}</p>
+                <p><strong>Direservasi oleh:</strong> {{ listing.reserved_by }}</p>
+
+                {% if user.is_authenticated and listing.owner_id == user.id %}
+                    <a href="{% url 'dead_drop:edit_listing' listing_id=listing.pk %}">Edit listing</a>
+                    <form method="post" hx-post="{% url 'dead_drop:claim_listing' listing_id=listing.pk %}" hx-target="#dead-drop-board" hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <button type="submit">Tandai sudah diklaim</button>
+                    </form>
+                {% endif %}
+
+                {% if user.is_authenticated %}
+                    {% if listing.owner_id == user.id or listing.reserved_by_id == user.id %}
+                    <form method="post" hx-post="{% url 'dead_drop:cancel_reserve_listing' listing_id=listing.pk %}" hx-target="#dead-drop-board" hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <button type="submit">Batalkan reservasi</button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+            </article>
+        {% empty %}
+            <p>Belum ada makanan yang kamu reservasi atau posting.</p>
+        {% endfor %}
+    </section>
+
+    <section>
+        <h2>Riwayat klaim</h2>
+        {% for listing in claimed_listings %}
+            <article id="listing-card-{{ listing.pk }}">
+                <h3>{{ listing.food_name }}</h3>
+                <p>{{ listing.description }}</p>
+                <p><strong>Lokasi:</strong> {{ listing.pickup_location }}</p>
+                <p><strong>Waktu penjemputan:</strong> {{ listing.pickup_time|date:"d M Y, H:i" }}</p>
+                <p><strong>Waktu diklaim:</strong> {{ listing.claimed_at|date:"d M Y, H:i" }}</p>
+            </article>
+        {% empty %}
+            <p>Belum ada makanan yang kamu klaim atau posting hingga selesai.</p>
+        {% endfor %}
+    </section>
+</div>
