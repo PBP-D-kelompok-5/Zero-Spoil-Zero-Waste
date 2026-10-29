@@ -69,14 +69,17 @@ Setiap modul dikembangkan secara independen oleh satu anggota kelompok dan memen
 * **Data contoh:** Tombol "Isi 50 bahan contoh" pada inventaris kosong (mis. akun demo di PWS) atau command `seed_death_clock`.
 
 ### 2. Recipe Alchemist (Penyelamat Resep & Integrasi API Publik) — *Nuno Mikael Nugroho*
-* **Deskripsi:** Mesin pencari resep cerdas yang mencocokkan sisa bahan makanan di inventaris dengan resep masakan praktis untuk meminimalkan sisa pangan.
-* **Model:** Menyimpan resep darurat kustom buatan pengguna, resep yang disimpan/diberi markah (*bookmarks*), dan catatan modifikasi memasak.
-* **Fitur CRUD:**
-  * **Create:** Menulis resep penyelamat kustom baru atau menyimpan resep hasil pencarian API publik.
-  * **Read:** Menelusuri dan membaca resep masakan dari API eksternal maupun resep komunitas.
-  * **Update:** Memperbarui langkah-langkah memasak, takaran bahan, atau catatan pribadi pada resep.
-  * **Delete:** Menghapus resep yang telah disimpan atau resep kustom pribadi.
-* **Integrasi API & Filter:** Terintegrasi dengan **Spoonacular Food API** (*endpoint* `/recipes/findByIngredients`). Mendukung pemfilteran dinamis berdasarkan ketersediaan bahan, durasi memasak maksimum, dan preferensi diet.
+* **Deskripsi:** Mesin pencari resep yang mencocokkan bahan yang diketik dan isi inventaris Death Clock dengan resep dari Spoonacular, koleksi pribadi, dan resep komunitas.
+* **Model:** Satu model `Recipe` untuk semua jenis resep: kustom buatan pengguna atau disimpan dari Spoonacular (`source`), dengan bahan, langkah memasak, waktu masak, diet, catatan pribadi, dan status publik/pribadi (`is_public`). Resep yang disimpan dari API berfungsi sebagai *bookmark* yang tetap bisa diubah, dan catatan modifikasi memasak ada di field `notes`. Satu resep API hanya bisa disimpan sekali per pengguna (`UniqueConstraint`).
+* **Halaman & fitur CRUD:**
+  * **Create:** Tulis resep kustom (`/recipes/baru/`) atau simpan hasil pencarian Spoonacular dengan satu klik.
+  * **Read:** Cari resep, Koleksi saya, Komunitas (resep yang dipublikasikan semua pengguna), dan halaman detail.
+  * **Update:** Ubah judul, bahan, langkah, waktu masak, diet, catatan pribadi, dan status publik, termasuk pada resep yang disimpan dari API.
+  * **Delete:** Hapus resep milik sendiri (hanya lewat `POST`).
+* **Pencarian:** Bahan diambil dari input pengguna dan, bila dicentang, dari bahan aktif di Death Clock (bahan yang sudah "Resurrected" tidak ikut). Hasil lokal (koleksi sendiri + komunitas, diurutkan berdasarkan jumlah bahan yang cocok) tampil di atas hasil Spoonacular. Nama bahan berbahasa Indonesia diterjemahkan lewat kamus kecil karena Spoonacular memakai bahasa Inggris. Filter: waktu masak maksimum dan preferensi diet.
+* **Integrasi API:** Spoonacular `findByIngredients` + `informationBulk` (lihat tabel API di bawah).
+* **Interaktivitas:** Tombol "Simpan resep" memakai `fetch` (AJAX): kartu langsung berubah menjadi "Tersimpan" tanpa memuat ulang halaman. Pencarian dan filter memakai form `GET` sehingga URL hasil bisa dibagikan. Tanpa JavaScript, tombol simpan tetap bekerja lewat `POST` biasa.
+* **Otentikasi & keamanan:** Tamu boleh mencari dan melihat resep komunitas; menulis atau menyimpan resep butuh login. Resep pribadi milik pengguna lain dan semua aksi ubah/hapus milik orang lain mengembalikan `404`. Catatan pribadi tidak tampil pada resep publik.
 
 ### 3. The Dead Drop (Berbagi Makanan Lokal / Anak Kost) — *Joshua Carnsyn Suyanto Sidik*
 * **Deskripsi:** Papan berbagi berbasis komunitas mikro bagi penghuni kost atau tetangga untuk membagikan sisa bahan makanan mentah sebelum kedaluwarsa.
@@ -233,7 +236,7 @@ Kami menggunakan alat AI selama pengembangan. Setiap anggota bertanggung jawab m
 | Anggota | Alat | Dipakai untuk | Strategi prompt | Batasan yang ditemui & perbaikan manual |
 | :--- | :--- | :--- | :--- | :--- |
 | Michael Evan Putra Nugroho | Claude (aplikasi Claude, mode Cowork) | Kerangka awal Django & design system v1, landing page + autentikasi, implementasi Modul Death Clock beserta test, audit progres & keamanan tim, penyeragaman alur autentikasi lintas modul (`main/auth.py`), perbaikan tampilan Grimoire, form "kubur" Graveyard, halaman 404/500, diagnosis galat deployment | Memberi spesifikasi tugas, palet & struktur folder yang diinginkan, batasan (Bahasa Indonesia, AI tidak boleh melakukan aksi Git), lalu meminta AI menjalankan test dan menunjukkan bukti sebelum perubahan diterapkan | AI sempat mengubah line ending file menjadi CRLF sehingga diff PR membengkak; usulan memindahkan `SECRET_KEY` dibatalkan sesuai arahan dosen; AI tidak dapat mengakses log PWS dan CDN Tailwind sehingga pengecekan dilakukan manual. Seluruh commit, review, dan konfigurasi PWS dilakukan sendiri. |
-| Nuno Mikael Nugroho | `[isi]` | `[isi]` | `[isi]` | `[isi]` |
+| Nuno Mikael Nugroho | Claude | Kerangka awal template HTML untuk halaman Recipe Alchemist, bantu menulis tes, implementasi integrasi API Spoonacular dan mengatur pembatasannya, perbaikan bug pada implementasi form, menambahkan komen-komen pembantu | Memberi ide yang ingin diimplementasi, lalu menggunakan kode yang diberi AI sebagai contoh awal serta meminta menjelaskan dan memperbaiki bug jika ditemukan. | Claude awalnya mengintegrasi API Spoonacular pada search form dengan menampilkan 24 resep dan ini cepat menghabiskan kuota API-nya sehingga harus diganti menjadi angka yang lebih kecil (dipilih angka 12). Commit dan review di github dilakukan sendiri. |
 | Joshua Carnsyn Suyanto Sidik | `[isi]` | `[isi]` | `[isi]` | `[isi]` |
 | Adam Wahyu Syaputra | `[isi]` | `[isi]` | `[isi]` | `[isi]` |
 | Muhammad Syarifudin | `[isi]` | `[isi]` | `[isi]` | `[isi]` |
