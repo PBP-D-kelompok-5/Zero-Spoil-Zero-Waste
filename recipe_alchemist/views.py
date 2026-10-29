@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from death_clock.models import PantryItem
-from main.auth import guest_page, is_ajax, login_required_ajax
+from main.auth import guest_page, is_ajax, login_required_ajax, unauthorized_json
 from .forms import RecipeForm, SaveApiRecipeForm, SearchForm
 from .models import Recipe
 from .services import SpoonacularError, find_by_ingredients, to_english
@@ -113,6 +113,43 @@ def recipe_detail(request, pk):
     })
 
 
+# ---------- Read (JSON) ----------
+def visible_recipes(request):
+    """Resep publik + resep milik sendiri (bila login)."""
+    visible = Q(is_public=True)
+    if request.user.is_authenticated:
+        visible |= Q(user=request.user)
+    return Recipe.objects.filter(visible).select_related('user')
+
+
+@require_GET
+def recipes_json(request):
+    """Web service daftar resep. Filter: ?scope=mine|community, ?q=, ?diet=."""
+    queryset = visible_recipes(request)
+    scope = request.GET.get('scope', '')
+    if scope == 'mine':
+        if not request.user.is_authenticated:
+            return unauthorized_json()
+        queryset = queryset.filter(user=request.user)
+    elif scope == 'community':
+        queryset = queryset.filter(is_public=True)
+    q = request.GET.get('q', '').strip()
+    if q:
+        queryset = queryset.filter(Q(title__icontains=q) | Q(ingredients__icontains=q))
+    diet = request.GET.get('diet', '').strip()
+    if diet:
+        queryset = queryset.filter(diet=diet)
+    user_id = request.user.id
+    recipes = [recipe.to_dict(include_private=recipe.user_id == user_id) for recipe in queryset]
+    return JsonResponse({'ok': True, 'count': len(recipes), 'recipes': recipes})
+
+
+@require_GET
+def recipe_json(request, pk):
+    recipe = get_object_or_404(visible_recipes(request), pk=pk)
+    return JsonResponse(recipe.to_dict(include_private=recipe.user_id == request.user.id))
+
+
 # ---------- Create ----------
 @require_http_methods(['GET', 'POST'])
 @login_required_ajax
@@ -176,4 +213,4 @@ def recipe_delete(request, pk):
     title = recipe.title
     recipe.delete()
     messages.success(request, f'{title} dihapus.')
-    return redirect('recipe_alchemist:my_recipes')
+    return redirect('recipe_alchemist:my_recipes')

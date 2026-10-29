@@ -18,6 +18,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_date
+from django.utils.formats import date_format
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from death_clock.models import PantryItem
@@ -29,6 +31,13 @@ from main.auth import guest_page, is_ajax, login_required_ajax, safe_next_url
 
 # ---------- Helper ----------
 # Alur autentikasi (login_required_ajax, guest_page) ada di main/auth.py dan dipakai semua modul.
+def parse_date_param(value):
+    try:
+        return parse_date((value or '').strip())
+    except ValueError:  # format benar tetapi tanggal mustahil, mis. 2026-02-31
+        return None
+
+
 def calculate_analytics(user_items):
     """Menghitung metrik analitik limbah makanan milik pengguna."""
     today = timezone.localdate()
@@ -95,7 +104,7 @@ def calculate_analytics(user_items):
         'total_loss': float(total_loss),
         'total_weight_kg': float(total_weight_kg),
         'total_carbon_kg': float(total_carbon_kg),
-        'month_name': today.strftime('%B %Y'),
+        'month_name': date_format(today, 'F Y'),  # nama bulan berbahasa Indonesia
         'category_breakdown': [
             {'code': c['category'], 'label': Category(c['category']).label, 'count': c['count']}
             for c in category_ranking
@@ -124,6 +133,16 @@ def graveyard_list(request):
             Q(name__icontains=query) | Q(notes__icontains=query)
         )
 
+    # Rentang tanggal pembuangan (YYYY-MM-DD); nilai tidak valid diabaikan.
+    date_from = parse_date_param(request.GET.get('date_from'))
+    date_to = parse_date_param(request.GET.get('date_to'))
+    if date_from and date_to and date_from > date_to:
+        date_from, date_to = date_to, date_from
+    if date_from:
+        user_items = user_items.filter(disposed_at__gte=date_from)
+    if date_to:
+        user_items = user_items.filter(disposed_at__lte=date_to)
+
     # Analitik dihitung dari keseluruhan bahan pengguna (unfiltered untuk keakuratan metrik)
     all_user_items = GraveyardItem.objects.filter(user=request.user)
     analytics = calculate_analytics(all_user_items)
@@ -138,6 +157,8 @@ def graveyard_list(request):
         'selected_category': category_filter,
         'selected_reason': reason_filter,
         'search_query': query,
+        'date_from': date_from.isoformat() if date_from else '',
+        'date_to': date_to.isoformat() if date_to else '',
     }
 
     # Jika meminta format JSON atau AJAX
@@ -315,7 +336,9 @@ def graveyard_delete(request, pk):
 
     message = f'Catatan "{name}" telah dihapus dari Graveyard.'
     if is_ajax(request):
-        return JsonResponse({'ok': True, 'message': message})
+        analytics = calculate_analytics(GraveyardItem.objects.filter(user=request.user))
+        analytics_html = render_to_string('graveyard/partials/analytics.html', {'analytics': analytics}, request=request)
+        return JsonResponse({'ok': True, 'message': message, 'analytics': analytics, 'analytics_html': analytics_html})
 
     messages.info(request, message)
     return redirect('graveyard:graveyard_list')

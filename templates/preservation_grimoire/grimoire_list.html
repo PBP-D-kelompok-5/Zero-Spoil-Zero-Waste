@@ -17,9 +17,9 @@
     {% endif %}
   </header>
 
-  <form method="get" class="pn-form mt-8 grid gap-3 sm:grid-cols-[1fr_auto_auto]" role="search">
+  <form id="grimoire-filter" method="get" action="{% url 'preservation_grimoire:grimoire_list' %}" class="pn-form mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]" role="search">
     <label class="sr-only" for="grimoire-q">Cari panduan</label>
-    <input id="grimoire-q" type="search" name="q" value="{{ search_query }}" placeholder="Cari bahan atau judul panduan…" />
+    <input id="grimoire-q" type="search" name="q" value="{{ search_query }}" placeholder="Cari bahan, judul, atau metode…" autocomplete="off" class="sm:col-span-2 lg:col-span-1" />
     <label class="sr-only" for="grimoire-category">Kategori</label>
     <select id="grimoire-category" name="category">
       <option value="">Semua kategori</option>
@@ -27,32 +27,64 @@
         <option value="{{ value }}" {% if selected_category == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    <button type="submit" class="pn-btn pn-btn--secondary">Cari</button>
+    <label class="sr-only" for="grimoire-method">Metode pengawetan</label>
+    <select id="grimoire-method" name="method">
+      <option value="">Semua metode</option>
+      {% for method in methods %}
+        <option value="{{ method }}" {% if selected_method|lower == method|lower %}selected{% endif %}>{{ method }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="pn-btn pn-btn--secondary sm:col-span-2 lg:col-span-1">Cari</button>
   </form>
 
-  <section class="mt-8">
-    {% if guides %}
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {% for guide in guides %}
-          <a href="{% url 'preservation_grimoire:grimoire_detail' guide.pk %}" class="pn-card pn-card--accent pn-tone-frost flex flex-col gap-3 hover:border-bone-400">
-            <div class="flex flex-wrap gap-2">
-              <span class="pn-badge pn-tone-frost">{{ guide.get_category_display }}</span>
-              <span class="pn-badge">{{ guide.preservation_method }}</span>
-            </div>
-            <h2 class="font-display text-lg font-semibold">{{ guide.title }}</h2>
-            <p class="line-clamp-3 text-sm text-bone-200">{{ guide.content }}</p>
-            <p class="mt-auto flex items-center justify-between gap-3 text-xs pn-muted">
-              <span>oleh {{ guide.author.username }}</span>
-              <span>👍 {{ guide.total_upvotes }}</span>
-            </p>
-          </a>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p class="pn-card pn-muted">
-        {% if search_query or selected_category %}Belum ada panduan yang cocok. Coba kata kunci atau kategori lain.{% else %}Belum ada panduan pengawetan. Jadilah yang pertama menulis!{% endif %}
-      </p>
-    {% endif %}
+  <section id="grimoire-results" class="mt-8 transition-opacity duration-150" aria-live="polite">
+    {% include 'preservation_grimoire/partials/guide_list.html' %}
   </section>
 </div>
 {% endblock content %}
+
+{% block scripts %}
+<script>
+  // Pencarian instan: daftar diperbarui saat mengetik/memilih filter, tanpa memuat ulang halaman.
+  // Tanpa JavaScript, form tetap bekerja lewat GET biasa.
+  (function () {
+    const form = document.getElementById("grimoire-filter");
+    const results = document.getElementById("grimoire-results");
+    if (!form || !results) return;
+    let timer = null;
+    let controller = null;
+
+    async function refresh() {
+      const params = new URLSearchParams(new FormData(form));
+      for (const [key, value] of [...params]) if (!value) params.delete(key);
+      const url = form.action + (params.toString() ? "?" + params : "");
+      if (controller) controller.abort();
+      controller = new AbortController();
+      results.classList.add("opacity-60");
+      try {
+        const response = await fetch(url, {
+          headers: { "X-Requested-With": "XMLHttpRequest", Accept: "application/json" },
+          signal: controller.signal,
+          credentials: "same-origin",
+        });
+        if (!response.ok) throw new Error(response.status);
+        const data = await response.json();
+        results.innerHTML = data.html;  // HTML dirender & di-escape oleh Django
+        history.replaceState(null, "", url);
+      } catch (error) {
+        if (error.name !== "AbortError") form.submit();
+      } finally {
+        results.classList.remove("opacity-60");
+      }
+    }
+
+    form.addEventListener("submit", (event) => { event.preventDefault(); refresh(); });
+    form.addEventListener("input", (event) => {
+      if (event.target.name !== "q") return;
+      clearTimeout(timer);
+      timer = setTimeout(refresh, 300);
+    });
+    form.addEventListener("change", (event) => { if (event.target.tagName === "SELECT") refresh(); });
+  })();
+</script>
+{% endblock scripts %}

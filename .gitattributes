@@ -1,0 +1,15 @@
+# Simpan semua file teks di repo dengan line ending LF.
+# Git otomatis memakai CRLF di working tree Windows bila core.autocrlf=true,
+# jadi diff tidak lagi membengkak karena perbedaan line ending antaranggota.
+* text=auto
+
+# File biner: jangan pernah diubah line ending-nya.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.sqlite3 binary

@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from death_clock.forms import BulkAddForm, FilterForm, PantryItemForm, QuantityForm
@@ -129,6 +130,16 @@ def pantry_json(request):
         'items': [item.to_dict() for item in items],
     })
 
+# @require_GET
+# @login_required_ajax
+# def nonflatline_json(request):
+#     today = timezone.localdate()
+#     # Flatlining = belum diolah DAN kedaluwarsa <= hari ini → buang kombinasi itu
+#     items = user_items(request).exclude(resurrected_at__isnull=True, expiry_date__lte=today)
+#     return JsonResponse({
+#         'count': len(items),
+#         'items': [item.to_dict() for item in items],
+#     })
 
 @require_GET
 @login_required_ajax

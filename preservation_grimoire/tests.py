@@ -166,3 +166,53 @@ class GrimoireAuthFlowTest(TestCase):
         self.client.force_login(self.other)
         response = self.client.post(self.url('toggle_upvote', self.guide.pk), {'next': 'https://contoh-jahat.com/'})
         self.assertRedirects(response, self.url('grimoire_detail', self.guide.pk))
+
+
+class GrimoireSearchAndJsonTest(TestCase):
+    """Pencarian per metode, pencarian instan (AJAX), dan web service JSON."""
+
+    def setUp(self):
+        self.author = User.objects.create_user(username='syarif', password='password123')
+        self.pickle = PreservationGuide.objects.create(
+            author=self.author, **{**GUIDE_DATA, 'title': 'Acar timun', 'preservation_method': 'Pickling'}
+        )
+        self.freeze = PreservationGuide.objects.create(
+            author=self.author, **{**GUIDE_DATA, 'title': 'Bayam beku', 'category': 'VEG',
+                                   'preservation_method': 'Freezing', 'content': 'Blansir lalu bekukan.'}
+        )
+
+    def titles(self, response):
+        return [guide.title for guide in response.context['guides']]
+
+    def test_query_matches_preservation_method(self):
+        response = self.client.get(reverse('preservation_grimoire:grimoire_list'), {'q': 'pickl'})
+        self.assertEqual(self.titles(response), ['Acar timun'])
+
+    def test_method_filter_and_choices(self):
+        response = self.client.get(reverse('preservation_grimoire:grimoire_list'), {'method': 'freezing'})
+        self.assertEqual(self.titles(response), ['Bayam beku'])
+        self.assertEqual(response.context['methods'], ['Freezing', 'Pickling'])
+
+    def test_ajax_returns_rendered_list(self):
+        response = self.client.get(reverse('preservation_grimoire:grimoire_list'), {'q': 'bayam'}, **AJAX)
+        data = response.json()
+        self.assertEqual(data['count'], 1)
+        self.assertIn('Bayam beku', data['html'])
+        self.assertNotIn('Acar timun', data['html'])
+
+    def test_ajax_empty_result_shows_message(self):
+        data = self.client.get(reverse('preservation_grimoire:grimoire_list'), {'q': 'tidak-ada'}, **AJAX).json()
+        self.assertEqual(data['count'], 0)
+        self.assertIn('Belum ada panduan yang cocok', data['html'])
+
+    def test_json_list_with_filters(self):
+        self.pickle.upvotes.add(self.author)
+        data = self.client.get(reverse('preservation_grimoire:grimoire_json'), {'category': self.pickle.category, 'method': 'Pickling'}).json()
+        self.assertEqual(data['count'], 1)
+        guide = data['guides'][0]
+        self.assertEqual((guide['title'], guide['author'], guide['total_upvotes']), ('Acar timun', 'syarif', 1))
+
+    def test_json_detail(self):
+        data = self.client.get(reverse('preservation_grimoire:grimoire_detail_json', args=[self.freeze.pk])).json()
+        self.assertEqual(data['preservation_method'], 'Freezing')
+        self.assertEqual(self.client.get(reverse('preservation_grimoire:grimoire_detail_json', args=[999])).status_code, 404)

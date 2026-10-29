@@ -6,12 +6,13 @@ from django.conf import settings
 from django.core.cache import cache
 from django.http import JsonResponse
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 from django.urls import reverse
+
+from main.auth import login_required_ajax
 
 from .forms import FoodListingForm
 from .models import FoodListing, ListingStatus
@@ -125,6 +126,25 @@ def redirect_to_board(request, default=ListingStatus.AVAILABLE):
     return redirect(route_names[status])
 
 
+@require_GET
+def listings_json(request):
+    """Web service listing yang boleh dilihat pengguna ini (tamu: hanya yang tersedia). Filter: ?status=."""
+    listings = visible_listing_for(request.user).select_related("owner", "reserved_by")
+    status = request.GET.get("status", "")
+    if status in ListingStatus.values:
+        listings = listings.filter(status=status)
+    data = [listing.to_dict() for listing in listings]
+    return JsonResponse({"ok": True, "count": len(data), "listings": data})
+
+
+@require_GET
+def listing_json(request, listing_id):
+    listing = get_object_or_404(
+        visible_listing_for(request.user).select_related("owner", "reserved_by"), pk=listing_id
+    )
+    return JsonResponse(listing.to_dict())
+
+
 def listing_board(request, status=ListingStatus.AVAILABLE):
     return render(
         request,
@@ -133,7 +153,7 @@ def listing_board(request, status=ListingStatus.AVAILABLE):
     )
 
 
-@login_required
+@login_required_ajax
 @require_GET
 def geocode_location(request):
     query = " ".join(request.GET.get("q", "").split())
@@ -240,7 +260,7 @@ def geocode_location(request):
     cache.set(cache_key, result, timeout=86400)
     return JsonResponse(result)
 
-@login_required
+@login_required_ajax
 def create_listing(request):
     if request.method == "POST":
         form = FoodListingForm(request.POST)
@@ -284,7 +304,7 @@ def create_listing(request):
 
     return render(request, "dead_drop/food_listing_form.html", context)
 
-@login_required
+@login_required_ajax
 @require_POST
 def reserve_listing(request, listing_id):
     listing = get_object_or_404(FoodListing, pk=listing_id)
@@ -322,7 +342,7 @@ def reserve_listing(request, listing_id):
     messages.error(request, message)
     return redirect_to_board(request, ListingStatus.AVAILABLE)
 
-@login_required
+@login_required_ajax
 @require_POST
 def cancel_reserve_listing(request, listing_id):
     listing = get_object_or_404(FoodListing, pk=listing_id)
@@ -362,7 +382,7 @@ def cancel_reserve_listing(request, listing_id):
     messages.error(request, message)
     return redirect_to_board(request, ListingStatus.RESERVED)
 
-@login_required
+@login_required_ajax
 @require_POST
 def claim_listing(request, listing_id):
     listing = get_object_or_404(FoodListing, pk=listing_id)
@@ -400,7 +420,7 @@ def claim_listing(request, listing_id):
     messages.error(request, message)
     return redirect_to_board(request, ListingStatus.RESERVED)
 
-@login_required
+@login_required_ajax
 def edit_listing(request, listing_id):
     listing = get_object_or_404(FoodListing, pk=listing_id)
     is_htmx = request.headers.get("HX-Request") == "true"
@@ -460,7 +480,7 @@ def edit_listing(request, listing_id):
 
     return render(request, "dead_drop/food_listing_form.html", context)
 
-@login_required
+@login_required_ajax
 @require_POST
 def delete_listing(request, listing_id):
     listing = get_object_or_404(FoodListing, pk=listing_id)

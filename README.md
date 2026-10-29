@@ -115,7 +115,7 @@ Setiap modul dikembangkan secara independen oleh satu anggota kelompok dan memen
 | Sumber | Dipakai oleh | Kegunaan | Dokumentasi |
 | :--- | :--- | :--- | :--- |
 | **Spoonacular Food API** | Recipe Alchemist | `GET /recipes/findByIngredients` untuk mencari resep dari sisa bahan, lalu `GET /recipes/informationBulk` untuk durasi memasak, diet, dan tautan sumber | https://spoonacular.com/food-api/docs |
-| **OpenStreetMap Nominatim** | The Dead Drop *(dalam pengerjaan)* | Geocoding alamat titik temu menjadi koordinat peta | https://nominatim.org/release-docs/latest/api/Overview/ |
+| **OpenStreetMap Nominatim** | The Dead Drop | Geocoding alamat titik temu menjadi koordinat peta | https://nominatim.org/release-docs/latest/api/Overview/ |
 
 **Penanganan data eksternal (Spoonacular)**
 * Dipanggil dari server (`recipe_alchemist/services.py`), sehingga API key tidak pernah sampai ke browser.

@@ -1105,3 +1105,67 @@ class GraveyardCRUDViewsTest(TestCase):
         self.assertIn('Daging Sapi Busuk', data_meat['html'])
         self.assertNotIn('Bayam Layu', data_meat['html'])
 
+
+
+class GraveyardDateRangeAndAnalyticsTest(TestCase):
+    """Filter rentang tanggal, kartu analitik setelah hapus via AJAX, dan nama bulan berbahasa Indonesia."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='adam_necro', password='Kulkas-Bersama-2026')
+        self.client.force_login(self.user)
+        self.today = timezone.localdate()
+        self.list_url = reverse('graveyard:graveyard_list')
+
+    def bury(self, name, days_ago, loss='10000'):
+        return GraveyardItem.objects.create(
+            user=self.user, name=name, category=Category.VEG, reason=DisposalReason.EXPIRED,
+            disposed_at=self.today - timedelta(days=days_ago), quantity=1, unit=Unit.PIECE,
+            weight_g=Decimal('100.00'), estimated_loss=Decimal(loss),
+        )
+
+    def names(self, response):
+        return sorted(item.name for item in response.context['items'])
+
+    def test_date_range_filters_by_disposed_at(self):
+        self.bury('Lama', 30)
+        self.bury('Minggu lalu', 7)
+        self.bury('Hari ini', 0)
+        response = self.client.get(self.list_url, {
+            'date_from': str(self.today - timedelta(days=10)), 'date_to': str(self.today - timedelta(days=1)),
+        })
+        self.assertEqual(self.names(response), ['Minggu lalu'])
+        self.assertContains(response, 'type="date" id="date_from"')
+
+    def test_swapped_and_invalid_dates(self):
+        self.bury('Lama', 30)
+        self.bury('Hari ini', 0)
+        swapped = self.client.get(self.list_url, {'date_from': str(self.today), 'date_to': str(self.today - timedelta(days=1))})
+        self.assertEqual(self.names(swapped), ['Hari ini'])  # dari > sampai ditukar otomatis
+        invalid = self.client.get(self.list_url, {'date_from': '2026-02-31', 'date_to': 'kemarin'})
+        self.assertEqual(self.names(invalid), ['Hari ini', 'Lama'])
+
+    def test_date_range_works_over_ajax(self):
+        self.bury('Lama', 30)
+        self.bury('Hari ini', 0)
+        data = self.client.get(self.list_url, {'date_from': str(self.today)}, HTTP_X_REQUESTED_WITH='XMLHttpRequest').json()
+        self.assertEqual(data['count'], 1)
+        self.assertIn('Hari ini', data['html'])
+
+    def test_ajax_delete_returns_updated_analytics(self):
+        keep = self.bury('Roti tawar', 0, loss='12000')
+        gone = self.bury('Susu UHT', 0, loss='18000')
+        response = self.client.post(
+            reverse('graveyard:graveyard_delete', args=[gone.pk]), HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        data = response.json()
+        self.assertEqual(data['analytics']['total_loss'], 12000.0)
+        self.assertIn('id="graveyard-analytics"', data['analytics_html'])
+        self.assertIn('Rp 12.000', data['analytics_html'])
+        self.assertTrue(GraveyardItem.objects.filter(pk=keep.pk).exists())
+
+    def test_month_name_is_indonesian(self):
+        from django.utils.formats import date_format
+        self.bury('Hari ini', 0)
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.context['analytics']['month_name'], date_format(self.today, 'F Y'))
+        self.assertEqual(date_format(date(2026, 10, 1), 'F Y'), 'Oktober 2026')

@@ -3,7 +3,9 @@
 Aturan yang dipakai di seluruh aplikasi:
 1. Halaman/aksi yang butuh login memakai ``login_required_ajax``:
    * permintaan biasa  -> redirect ke halaman masuk dengan ``?next=`` ke halaman asal;
-   * AJAX / JSON       -> 401 JSON ``{"ok": false, "detail": ..., "login_url": ...}``.
+   * AJAX / JSON       -> 401 JSON ``{"ok": false, "detail": ..., "login_url": ...}``;
+   * HTMX              -> header ``HX-Redirect`` ke halaman masuk (seluruh halaman pindah,
+                          bukan halaman login yang tertempel di dalam potongan HTML).
 2. Halaman daftar yang datanya privat memakai ``guest_page``: tamu melihat halaman
    pengenalan modul (dengan tombol Masuk/Daftar), bukan dilempar ke halaman masuk.
 3. Objek milik pengguna lain dianggap tidak ada (404), agar keberadaannya tidak bocor.
@@ -14,10 +16,11 @@ Aturan yang dipakai di seluruh aplikasi:
 import math
 import time
 from functools import wraps
+from urllib.parse import urlsplit
 
 from django.contrib.auth.views import redirect_to_login
 from django.core.cache import cache
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -42,13 +45,33 @@ def unauthorized_json(detail=LOGIN_MESSAGE):
     return JsonResponse({'ok': False, 'detail': detail, 'login_url': reverse('main:login')}, status=401)
 
 
+def is_htmx(request):
+    return request.headers.get('HX-Request') == 'true'
+
+
+def htmx_login_redirect(request):
+    """Tamu yang memicu aksi HTMX diarahkan ke halaman masuk, lalu kembali ke halaman yang sedang dibuka."""
+    current = request.headers.get('HX-Current-URL', '')
+    parts = urlsplit(current)
+    next_path = parts.path + (f'?{parts.query}' if parts.query else '')
+    if not next_path or not url_has_allowed_host_and_scheme(
+        current, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        next_path = request.get_full_path()
+    response = HttpResponse(status=204)
+    response['HX-Redirect'] = redirect_to_login(next_path).url
+    return response
+
+
 def login_required_ajax(view):
-    """Seperti ``@login_required``, tetapi AJAX/JSON mendapat 401 JSON, bukan redirect."""
+    """Seperti ``@login_required``, tetapi AJAX/JSON mendapat 401 JSON dan HTMX mendapat HX-Redirect."""
 
     @wraps(view)
     def wrapper(request, *args, **kwargs):
         if request.user.is_authenticated:
             return view(request, *args, **kwargs)
+        if is_htmx(request):
+            return htmx_login_redirect(request)
         if wants_json(request):
             return unauthorized_json()
         return redirect_to_login(request.get_full_path())
