@@ -72,7 +72,7 @@
   </div>
 
   {# Tampilan Mobile & Tablet: Kartu Memorial Ringkas #}
-  <div class="lg:hidden mt-4 grid gap-3 sm:grid-cols-2">
+  <div class="lg:hidden mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
     {% for item in items %}
       <article id="graveyard-card-{{ item.pk }}" class="pn-card pn-card--accent pn-tone-blood flex flex-col justify-between p-4 transition-all duration-300 hover:border-blood-400/50">
         <div>
@@ -139,14 +139,14 @@
       Graveyard Masih Kosong!
     </h3>
     <p class="mt-2 max-w-md text-sm text-bone-200 leading-relaxed">
-      {% if search_query or selected_category or selected_reason %}
+      {% if search_query or selected_category or selected_reason or date_from or date_to %}
         Tidak ada bahan makanan yang sesuai dengan saringan saat ini.
       {% else %}
         Tidak ada bahan makanan yang terbuang. Seluruh bahan di dapurmu masih aman atau berhasil diselamatkan di Death Clock.
       {% endif %}
     </p>
     <div class="mt-6 flex flex-wrap gap-3 justify-center">
-      {% if search_query or selected_category or selected_reason %}
+      {% if search_query or selected_category or selected_reason or date_from or date_to %}
         <a href="{% url 'graveyard:graveyard_list' %}" data-action="reset-filter" class="pn-btn pn-btn--secondary text-sm cursor-pointer">
           Reset Saringan
         </a>

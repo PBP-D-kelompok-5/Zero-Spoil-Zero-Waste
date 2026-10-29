@@ -1,0 +1,23 @@
+{# Daftar kartu panduan; dipakai halaman Grimoire dan respons pencarian instan (AJAX). #}
+{% if guides %}
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {% for guide in guides %}
+      <a href="{% url 'preservation_grimoire:grimoire_detail' guide.pk %}" class="pn-card pn-card--accent pn-tone-frost flex flex-col gap-3 hover:border-bone-400">
+        <div class="flex flex-wrap gap-2">
+          <span class="pn-badge pn-tone-frost">{{ guide.get_category_display }}</span>
+          <span class="pn-badge">{{ guide.preservation_method }}</span>
+        </div>
+        <h2 class="font-display text-lg font-semibold">{{ guide.title }}</h2>
+        <p class="line-clamp-3 text-sm text-bone-200">{{ guide.content }}</p>
+        <p class="mt-auto flex items-center justify-between gap-3 text-xs pn-muted">
+          <span>oleh {{ guide.author.username }}</span>
+          <span>👍 {{ guide.total_upvotes }}</span>
+        </p>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="pn-card pn-muted">
+    {% if search_query or selected_category or selected_method %}Belum ada panduan yang cocok. Coba kata kunci, kategori, atau metode lain.{% else %}Belum ada panduan pengawetan. Jadilah yang pertama menulis!{% endif %}
+  </p>
+{% endif %}

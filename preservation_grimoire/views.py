@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.db.models import Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
@@ -22,25 +23,63 @@ def get_editable_guide(request, pk):
     return guide
 
 
+def filter_guides(params):
+    """Filter bersama untuk halaman, AJAX, dan JSON: ?q= (judul, isi, metode), ?category=, ?method=."""
+    guides = PreservationGuide.objects.select_related('author').order_by('-created_at')
+    category = params.get('category', '').strip()
+    method = params.get('method', '').strip()
+    query = params.get('q', '').strip()
+    if category:
+        guides = guides.filter(category=category)
+    if method:
+        guides = guides.filter(preservation_method__iexact=method)
+    if query:
+        guides = guides.filter(
+            Q(title__icontains=query) | Q(content__icontains=query) | Q(preservation_method__icontains=query)
+        )
+    return guides, {'search_query': query, 'selected_category': category, 'selected_method': method}
+
+
+def method_choices():
+    """Daftar metode pengawetan yang sudah dipakai (tanpa duplikat beda huruf besar/kecil)."""
+    seen = {}
+    for method in PreservationGuide.objects.values_list('preservation_method', flat=True):
+        cleaned = method.strip()
+        if cleaned:
+            seen.setdefault(cleaned.casefold(), cleaned)
+    return sorted(seen.values(), key=str.casefold)
+
+
 @require_GET
 def grimoire_list(request):
-    category_filter = request.GET.get('category', '')
-    query = request.GET.get('q', '')
-
-    guides = PreservationGuide.objects.all().order_by('-created_at')
-
-    if category_filter:
-        guides = guides.filter(category=category_filter)
-    if query:
-        guides = guides.filter(Q(title__icontains=query) | Q(content__icontains=query))
+    guides, filters = filter_guides(request.GET)
+    if is_ajax(request):
+        # Pencarian instan: kirim ulang potongan daftar saja.
+        html = render_to_string('preservation_grimoire/partials/guide_list.html', {'guides': guides, **filters}, request=request)
+        return JsonResponse({'ok': True, 'count': guides.count(), 'html': html})
 
     context = {
         'guides': guides,
         'categories': PreservationGuide.CATEGORY_CHOICES,
-        'selected_category': category_filter,
-        'search_query': query,
+        'methods': method_choices(),
+        **filters,
     }
     return render(request, 'preservation_grimoire/grimoire_list.html', context)
+
+
+@require_GET
+def grimoire_json(request):
+    """Web service daftar panduan (filter sama dengan halaman: q, category, method)."""
+    guides, _ = filter_guides(request.GET)
+    guides = guides.prefetch_related('upvotes')
+    data = [guide.to_dict() for guide in guides]
+    return JsonResponse({'ok': True, 'count': len(data), 'guides': data})
+
+
+@require_GET
+def grimoire_detail_json(request, pk):
+    guide = get_object_or_404(PreservationGuide.objects.select_related('author'), pk=pk)
+    return JsonResponse(guide.to_dict())
 
 
 @require_GET

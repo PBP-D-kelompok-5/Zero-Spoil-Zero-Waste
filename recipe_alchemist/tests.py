@@ -623,4 +623,50 @@ class SaveApiRecipeViewTests(ViewTestCase):
     def test_plain_post_with_invalid_data_redirects_back_to_search(self):
         self.client.force_login(self.user)
         response = self.client.post(self.url, {'title': 'No id', 'ingredients': 'x'})
-        self.assertRedirects(response, reverse('recipe_alchemist:recipe_list'), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse('recipe_alchemist:recipe_list'), fetch_redirect_response=False)
+
+class RecipeJsonTests(ViewTestCase):
+    """Web service JSON resep: publik + milik sendiri; catatan pribadi hanya untuk pemilik."""
+
+    url = reverse('recipe_alchemist:recipes_json')
+
+    def titles(self, response):
+        return sorted(r['title'] for r in response.json()['recipes'])
+
+    def test_guest_sees_public_recipes_only_without_notes(self):
+        self.make_recipe(title='Publik', is_public=True, notes='rahasia')
+        self.make_recipe(title='Pribadi')
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.titles(response), ['Publik'])
+        self.assertNotIn('notes', response.json()['recipes'][0])
+
+    def test_owner_sees_own_private_recipe_with_notes(self):
+        self.make_recipe(title='Pribadi', notes='pakai cabai rawit')
+        self.make_recipe(self.other, title='Punya Bob')
+        self.client.force_login(self.user)
+        data = self.client.get(self.url).json()
+        self.assertEqual([r['title'] for r in data['recipes']], ['Pribadi'])
+        self.assertEqual(data['recipes'][0]['notes'], 'pakai cabai rawit')
+        self.assertEqual(data['recipes'][0]['ingredients'], ['2 butir telur', 'nasi'])
+
+    def test_scope_and_search_filters(self):
+        self.make_recipe(title='Nasi goreng', is_public=True)
+        self.make_recipe(self.other, title='Sup bayam', ingredients='bayam', is_public=True)
+        self.client.force_login(self.user)
+        self.assertEqual(self.titles(self.client.get(self.url, {'scope': 'mine'})), ['Nasi goreng'])
+        self.assertEqual(self.titles(self.client.get(self.url, {'scope': 'community', 'q': 'bayam'})), ['Sup bayam'])
+
+    def test_scope_mine_requires_login(self):
+        response = self.client.get(self.url, {'scope': 'mine'})
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()['login_url'], reverse('main:login'))
+
+    def test_detail_hides_private_recipes_of_others(self):
+        private = self.make_recipe(self.other, title='Punya Bob')
+        public = self.make_recipe(self.other, title='Bob publik', is_public=True, notes='rahasia bob')
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(reverse('recipe_alchemist:recipe_json', args=[private.pk])).status_code, 404)
+        data = self.client.get(reverse('recipe_alchemist:recipe_json', args=[public.pk])).json()
+        self.assertEqual(data['title'], 'Bob publik')
+        self.assertNotIn('notes', data)

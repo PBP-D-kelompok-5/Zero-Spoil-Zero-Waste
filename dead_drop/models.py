@@ -29,5 +29,25 @@ class FoodListing(models.Model):
     def __str__(self):
         return self.food_name
 
+    def to_dict(self):
+        """Representasi JSON (web service & aplikasi mobile nanti)."""
+        return {
+            'id': self.pk,
+            'food_name': self.food_name,
+            'description': self.description,
+            'pickup_location': self.pickup_location,
+            'pickup_time': self.pickup_time.isoformat() if self.pickup_time else None,
+            'pickup_notes': self.pickup_notes,
+            'latitude': float(self.latitude),
+            'longitude': float(self.longitude),
+            'status': self.status,
+            'status_label': self.get_status_display(),
+            'owner': self.owner.username,
+            'reserved_by': self.reserved_by.username if self.reserved_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'claimed_at': self.claimed_at.isoformat() if self.claimed_at else None,
+        }
+
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["-created_at"]

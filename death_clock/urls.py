@@ -15,4 +15,5 @@ urlpatterns = [
     path('<int:pk>/delete/', views.item_delete, name='item_delete'),
     path('json/', views.pantry_json, name='pantry_json'),
     path('json/<int:pk>/', views.item_json, name='item_json'),
+    # path('json/nonflatline', views.nonflatline_json, name='nonflatline_json')
 ]

@@ -9,7 +9,9 @@ urlpatterns = [
     path('komunitas/', views.community_recipes, name='community_recipes'),
     path('baru/', views.recipe_create, name='recipe_create'),
     path('simpan/', views.recipe_save_api, name='recipe_save_api'),
+    path('json/', views.recipes_json, name='recipes_json'),
+    path('json/<int:pk>/', views.recipe_json, name='recipe_json'),
     path('<int:pk>/', views.recipe_detail, name='recipe_detail'),
     path('<int:pk>/ubah/', views.recipe_update, name='recipe_update'),
     path('<int:pk>/hapus/', views.recipe_delete, name='recipe_delete'),
-]
+]

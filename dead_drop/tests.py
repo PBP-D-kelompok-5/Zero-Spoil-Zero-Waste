@@ -1413,3 +1413,64 @@ class FoodListingGeocodingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["latitude"], -6.407194)
         self.assertEqual(response.json()["longitude"], 106.815837)
+
+class FoodListingJsonTests(FoodListingBoardTests):
+    """Web service JSON memakai aturan visibilitas yang sama dengan papan listing."""
+
+    def ids(self, response):
+        return [item["id"] for item in response.json()["listings"]]
+
+    def test_guest_sees_only_available_listings(self):
+        response = self.client.get(reverse("dead_drop:listings_json"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.ids(response), [self.listing_available.pk])
+        item = response.json()["listings"][0]
+        self.assertEqual(item["food_name"], "Kangkung")
+        self.assertEqual(item["owner"], "owner")
+        self.assertEqual(item["status"], ListingStatus.AVAILABLE)
+
+    def test_owner_and_reserver_see_their_reserved_and_claimed(self):
+        for user in (self.owner, self.reserved_by):
+            self.client.force_login(user)
+            self.assertCountEqual(
+                self.ids(self.client.get(reverse("dead_drop:listings_json"))),
+                [self.listing_available.pk, self.listing_reserved.pk, self.listing_claimed.pk],
+            )
+
+    def test_other_user_cannot_see_others_reservations(self):
+        self.client.force_login(self.other_user)
+        self.assertEqual(self.ids(self.client.get(reverse("dead_drop:listings_json"))), [self.listing_available.pk])
+        response = self.client.get(reverse("dead_drop:listing_json", args=[self.listing_reserved.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_status_filter_and_detail(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("dead_drop:listings_json"), {"status": ListingStatus.RESERVED})
+        self.assertEqual(self.ids(response), [self.listing_reserved.pk])
+        detail = self.client.get(reverse("dead_drop:listing_json", args=[self.listing_reserved.pk])).json()
+        self.assertEqual(detail["reserved_by"], "reservationMaker")
+
+
+class DeadDropGuestHtmxTests(FoodListingBoardTests):
+    """Tamu yang menekan tombol HTMX dibawa ke halaman masuk (bukan halaman login di dalam papan)."""
+
+    def test_guest_htmx_action_gets_hx_redirect_to_login(self):
+        response = self.client.post(
+            reverse("dead_drop:reserve_listing", args=[self.listing_available.pk]),
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_CURRENT_URL="http://testserver/dead-drop/",
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response["HX-Redirect"], f"{reverse('main:login')}?next=/dead-drop/")
+        self.listing_available.refresh_from_db()
+        self.assertEqual(self.listing_available.status, ListingStatus.AVAILABLE)
+
+    def test_external_current_url_is_ignored(self):
+        url = reverse("dead_drop:reserve_listing", args=[self.listing_available.pk])
+        response = self.client.post(url, HTTP_HX_REQUEST="true", HTTP_HX_CURRENT_URL="https://contoh-jahat.example/x")
+        self.assertNotIn("contoh-jahat", response["HX-Redirect"])
+
+    def test_guest_plain_request_still_redirects_to_login(self):
+        response = self.client.get(reverse("dead_drop:create_listing"))
+        self.assertRedirects(response, f"{reverse('main:login')}?next={reverse('dead_drop:create_listing')}",
+                             fetch_redirect_response=False)

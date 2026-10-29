@@ -30,5 +30,23 @@ class PreservationGuide(models.Model):
     def total_upvotes(self):
         return self.upvotes.count()
 
+    def to_dict(self):
+        """Representasi JSON (web service & aplikasi mobile nanti)."""
+        return {
+            'id': self.pk,
+            'title': self.title,
+            'category': self.category,
+            'category_label': self.get_category_display(),
+            'preservation_method': self.preservation_method,
+            'content': self.content,
+            'smell_indicator': self.smell_indicator,
+            'texture_indicator': self.texture_indicator,
+            'visual_indicator': self.visual_indicator,
+            'author': self.author.username,
+            'total_upvotes': self.upvotes.count(),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
     def __str__(self):
-        return f"{self.title} - {self.get_category_display()}"
+        return f"{self.title} - {self.get_category_display()}"

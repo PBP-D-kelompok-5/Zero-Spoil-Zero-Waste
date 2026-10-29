@@ -60,48 +60,7 @@
   </header>
 
   {# 2. Metric Cards: Struktur kartu analitik selaras dengan kartu status death_clock (dot indikator, angka besar, subteks kecil) #}
-  <section class="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Ringkasan Analitik Limbah">
-    {# Kartu 1: Total Item Bulan Ini #}
-    <div class="dc-tile pn-tone-blood">
-      <span class="dc-tile__label">Bulan Ini ({{ analytics.month_name }})</span>
-      <span class="font-display text-3xl font-semibold leading-none tabular-nums text-bone-50">
-        {{ analytics.total_this_month }} <span class="text-xs font-sans font-normal text-bone-400">item</span>
-      </span>
-      <span class="text-xs pn-muted">Kerugian: <strong class="text-blood-400">{{ analytics.loss_this_month|rupiah }}</strong></span>
-    </div>
-
-    {# Kartu 2: Kategori Paling Sering Terbuang #}
-    <div class="dc-tile pn-tone-ember">
-      <span class="dc-tile__label">Paling Sering Terbuang</span>
-      {% if analytics.top_category %}
-        <span class="font-display text-2xl sm:text-3xl font-semibold leading-none text-bone-50 truncate" title="{{ analytics.top_category.label }}">
-          {{ analytics.top_category.label }}
-        </span>
-        <span class="text-xs pn-muted">Terbuang <strong class="text-ember-400">{{ analytics.top_category.count }} kali</strong></span>
-      {% else %}
-        <span class="font-display text-3xl font-semibold leading-none text-bone-400">—</span>
-        <span class="text-xs pn-muted">Belum ada catatan limbah</span>
-      {% endif %}
-    </div>
-
-    {# Kartu 3: Total Kerugian Uang #}
-    <div class="dc-tile pn-tone-blood">
-      <span class="dc-tile__label">Total Kerugian Uang</span>
-      <span class="font-display text-3xl font-semibold leading-none tabular-nums text-blood-400">
-        {{ analytics.total_loss|rupiah }}
-      </span>
-      <span class="text-xs pn-muted">Dari total {{ analytics.total_items }} bahan terbuang</span>
-    </div>
-
-    {# Kartu 4: Jejak Karbon CO2e #}
-    <div class="dc-tile pn-tone-frost">
-      <span class="dc-tile__label">Jejak Karbon (CO₂e)</span>
-      <span class="font-display text-3xl font-semibold leading-none tabular-nums text-frost-400">
-        {{ analytics.total_carbon_kg }} <span class="text-xs font-sans font-normal text-bone-200">kg</span>
-      </span>
-      <span class="text-xs pn-muted">Bobot sampah bersih: ~{{ analytics.total_weight_kg }} kg</span>
-    </div>
-  </section>
+  {% include 'graveyard/partials/analytics.html' %}
 
   {# 2.5 The Haunting Wrapped: Bisikan Arwah Pangan (Carousel 5 Detik) #}
   {% if wrapped_slides %}
@@ -216,7 +175,7 @@
   {% endif %}
 
   {# 3. Filter Bar: Selaras dengan styling dc-filter death_clock (container, tombol Terapkan, dan teks Reset) #}
-  <form id="graveyard-filter-form" method="get" action="{% url 'graveyard:graveyard_list' %}" class="pn-form pn-card dc-filter mt-6 grid grid-cols-2 items-end gap-3 sm:gap-4 lg:grid-cols-[1.8fr_1.2fr_1.2fr_auto]" role="search">
+  <form id="graveyard-filter-form" method="get" action="{% url 'graveyard:graveyard_list' %}" class="pn-form pn-card dc-filter mt-6 grid grid-cols-2 items-end gap-3 sm:gap-4 lg:grid-cols-[1.8fr_1.2fr_1.2fr]" role="search">
     <div class="pn-field col-span-2 lg:col-span-1">
       <label class="pn-label" for="q">Cari</label>
       <input type="text" id="q" name="q" value="{{ search_query }}" placeholder="Nama bahan makanan atau catatan..." class="pn-input" />
@@ -242,7 +201,17 @@
       </select>
     </div>
 
-    <div class="col-span-2 flex gap-2 sm:col-span-1 lg:col-span-1">
+    <div class="pn-field col-span-1">
+      <label class="pn-label" for="date_from">Dibuang sejak</label>
+      <input type="date" id="date_from" name="date_from" value="{{ date_from }}" class="pn-input" />
+    </div>
+
+    <div class="pn-field col-span-1">
+      <label class="pn-label" for="date_to">Sampai</label>
+      <input type="date" id="date_to" name="date_to" value="{{ date_to }}" class="pn-input" />
+    </div>
+
+    <div class="col-span-2 flex items-end gap-2 lg:col-span-1">
       <button class="pn-btn pn-btn--primary flex-1 lg:flex-none" type="submit">Terapkan</button>
       <a id="graveyard-filter-reset" href="{% url 'graveyard:graveyard_list' %}" class="pn-btn pn-btn--ghost">Reset</a>
     </div>
@@ -572,7 +541,9 @@
     }
 
     // 2. Otomatis filter seketika saat dropdown kategori atau alasan berubah
-    [categorySelect, reasonSelect].forEach(select => {
+    const dateFrom = document.getElementById('date_from');
+    const dateTo = document.getElementById('date_to');
+    [categorySelect, reasonSelect, dateFrom, dateTo].forEach(select => {
       if (select) {
         select.addEventListener('change', function () {
           clearTimeout(searchTimer);
@@ -595,6 +566,8 @@
         if (searchInput) searchInput.value = '';
         if (categorySelect) categorySelect.value = '';
         if (reasonSelect) reasonSelect.value = '';
+        if (dateFrom) dateFrom.value = '';
+        if (dateTo) dateTo.value = '';
         clearTimeout(searchTimer);
         applyFilterAsync();
       });
@@ -608,6 +581,8 @@
         if (searchInput) searchInput.value = '';
         if (categorySelect) categorySelect.value = '';
         if (reasonSelect) reasonSelect.value = '';
+        if (dateFrom) dateFrom.value = '';
+        if (dateTo) dateTo.value = '';
         clearTimeout(searchTimer);
         applyFilterAsync();
       }
@@ -785,6 +760,12 @@
                   const newCount = Math.max(0, currentCount - 1);
                   countBadge.textContent = `(${newCount})`;
                 }
+              }
+
+              // Kartu ringkasan analitik ikut diperbarui (total kerugian, jejak karbon, dst.)
+              const analytics = document.getElementById('graveyard-analytics');
+              if (analytics && data.analytics_html) {
+                analytics.outerHTML = data.analytics_html;
               }
 
               showToast(`☠ Arwah "${itemName}" telah dijemput Sang Maut dan dilenyapkan.`);

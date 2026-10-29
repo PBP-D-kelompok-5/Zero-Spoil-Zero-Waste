@@ -39,3 +39,26 @@ class Recipe(models.Model):
     @property
     def ingredient_list(self):
         return [line.strip() for line in self.ingredients.splitlines() if line.strip()]
+
+    def to_dict(self, include_private=False):
+        """Representasi JSON. Catatan pribadi hanya disertakan untuk pemilik resep."""
+        data = {
+            'id': self.pk,
+            'title': self.title,
+            'source': self.source,
+            'source_label': self.get_source_display(),
+            'spoonacular_id': self.spoonacular_id,
+            'source_url': self.source_url,
+            'image_url': self.image_url,
+            'ingredients': self.ingredient_list,
+            'instructions': self.instructions,
+            'cook_time_minutes': self.cook_time_minutes,
+            'diet': self.diet,
+            'is_public': self.is_public,
+            'author': self.user.username,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        if include_private:
+            data['notes'] = self.notes
+        return data
