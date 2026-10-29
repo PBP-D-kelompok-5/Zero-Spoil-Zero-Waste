@@ -181,6 +181,7 @@ html[data-theme="light"] .pn-card {
 }
 .pn-nav__link { padding: 0.5rem 0.75rem; border-radius: var(--pn-radius); font-size: 0.875rem; color: rgb(var(--pn-bone-200)); }
 .pn-nav__link:hover { background: rgb(var(--pn-crypt-800)); color: rgb(var(--pn-bone-50)); }
+.pn-nav__link.is-active { background: rgb(var(--pn-crypt-800)); color: rgb(var(--pn-bone-50)); }
 
 /* ---------- Tombol Toggle Tema (Siang / Malam) ---------- */
 .pn-theme-toggle {

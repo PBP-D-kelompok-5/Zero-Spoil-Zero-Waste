@@ -1,4 +1,5 @@
 {% load static %}
+{% with ns=request.resolver_match.namespace %}
 <nav class="pn-nav">
   <div class="pn-container flex h-16 items-center justify-between gap-4">
     <a href="{% url 'main:show_main' %}" class="flex items-center gap-2.5">
@@ -7,11 +8,16 @@
     </a>
 
     <div class="hidden items-center gap-1 lg:flex">
-      <a href="{% url 'death_clock:pantry_list' %}" class="pn-nav__link">Death Clock</a>
-      <a href="{% url 'recipe_alchemist:recipe_list' %}" class="pn-nav__link">Alchemist</a>
-      <a href="{% url 'dead_drop:listing_board' %}" class="pn-nav__link">Dead Drop</a>
-      <a href="{% url 'graveyard:graveyard_list' %}" class="pn-nav__link">Graveyard</a>
-      <a href="{% url 'preservation_grimoire:grimoire_list' %}" class="pn-nav__link">Grimoire</a>
+      <a href="{% url 'death_clock:pantry_list' %}" class="pn-nav__link{% if ns == 'death_clock' %} 
+        is-active{% endif %}"{% if ns == 'death_clock' %} aria-current="page"{% endif %}>Death Clock</a>
+      <a href="{% url 'recipe_alchemist:recipe_list' %}" class="pn-nav__link{% if ns == 'recipe_alchemist' %} 
+        is-active{% endif %}"{% if ns == 'recipe_alchemist' %} aria-current="page"{% endif %}>Alchemist</a>
+      <a href="{% url 'dead_drop:listing_board' %}" class="pn-nav__link{% if ns == 'dead_drop' %} 
+        is-active{% endif %}"{% if ns == 'dead_drop' %} aria-current="page"{% endif %}>Dead Drop</a>
+      <a href="{% url 'graveyard:graveyard_list' %}" class="pn-nav__link{% if ns == 'graveyard' %} 
+        is-active{% endif %}"{% if ns == 'graveyard' %} aria-current="page"{% endif %}>Graveyard</a>
+      <a href="{% url 'preservation_grimoire:grimoire_list' %}" class="pn-nav__link{% if ns == 'preservation_grimoire' %} 
+        is-active{% endif %}"{% if ns == 'preservation_grimoire' %} aria-current="page"{% endif %}>Grimoire</a>
     </div>
 
     <div class="hidden items-center gap-2.5 lg:flex">
@@ -78,11 +84,16 @@
   </div>
 
   <div id="nav-mobile" class="pn-container hidden flex-col gap-1 pb-4 lg:hidden">
-    <a href="{% url 'death_clock:pantry_list' %}" class="pn-nav__link">Pantry Death Clock</a>
-    <a href="{% url 'recipe_alchemist:recipe_list' %}" class="pn-nav__link">Recipe Alchemist</a>
-    <a href="{% url 'dead_drop:listing_board' %}" class="pn-nav__link">The Dead Drop</a>
-    <a href="{% url 'graveyard:graveyard_list' %}" class="pn-nav__link">The Graveyard</a>
-    <a href="{% url 'preservation_grimoire:grimoire_list' %}" class="pn-nav__link">Preservation Grimoire</a>
+    <a href="{% url 'death_clock:pantry_list' %}" class="pn-nav__link{% if ns == 'death_clock' %} 
+      is-active{% endif %}"{% if ns == 'death_clock' %} aria-current="page"{% endif %}>Pantry Death Clock</a>
+    <a href="{% url 'recipe_alchemist:recipe_list' %}" class="pn-nav__link{% if ns == 'recipe_alchemist' %} 
+      is-active{% endif %}"{% if ns == 'recipe_alchemist' %} aria-current="page"{% endif %}>Recipe Alchemist</a>
+    <a href="{% url 'dead_drop:listing_board' %}" class="pn-nav__link{% if ns == 'dead_drop' %} 
+      is-active{% endif %}"{% if ns == 'dead_drop' %} aria-current="page"{% endif %}>The Dead Drop</a>
+    <a href="{% url 'graveyard:graveyard_list' %}" class="pn-nav__link{% if ns == 'graveyard' %} 
+      is-active{% endif %}"{% if ns == 'graveyard' %} aria-current="page"{% endif %}>The Graveyard</a>
+    <a href="{% url 'preservation_grimoire:grimoire_list' %}" class="pn-nav__link{% if ns == 'preservation_grimoire' %} 
+      is-active{% endif %}"{% if ns == 'preservation_grimoire' %} aria-current="page"{% endif %}>Preservation Grimoire</a>
     <hr class="my-2 border-crypt-700" />
     {% if user.is_authenticated %}
       <div class="flex items-center justify-between gap-3 px-3">
@@ -102,6 +113,7 @@
     {% endif %}
   </div>
 </nav>
+{% endwith %}
 
 <script>
   (function () {
