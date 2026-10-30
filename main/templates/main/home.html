@@ -12,10 +12,10 @@
       </p>
       <div class="flex flex-wrap gap-3">
         {% if user.is_authenticated %}
-          <a href="#modul" class="pn-btn pn-btn--primary">Lihat modul</a>
+          <a href="#modul" class="pn-btn pn-btn--primary">Lihat fitur</a>
         {% else %}
           <a href="{% url 'main:register' %}" class="pn-btn pn-btn--primary">Mulai gratis</a>
-          <a href="#modul" class="pn-btn pn-btn--secondary">Lihat modul</a>
+          <a href="#modul" class="pn-btn pn-btn--secondary">Lihat fitur</a>
         {% endif %}
       </div>
       {% if user.is_authenticated %}
@@ -52,12 +52,11 @@
 </section>
 
 <section id="modul" class="pn-container scroll-mt-20">
-  <h2 class="pn-heading mb-8">Lima modul</h2>
   <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {% for module in modules %}
       <article id="{{ module.slug }}" class="pn-card pn-card--accent pn-tone-{{ module.tone }} flex scroll-mt-24 flex-col gap-3">
         <div class="flex items-center justify-between gap-3">
-          <span class="text-xs font-semibold uppercase tracking-widest pn-muted">Modul {{ forloop.counter }}</span>
+          <span class="text-xs font-semibold uppercase tracking-widest pn-muted">Fitur {{ forloop.counter }}</span>
           {% if module.slug == 'grimoire' %}
             <a href="{% url 'preservation_grimoire:grimoire_list' %}" class="pn-badge pn-tone-{{ module.tone }}">Jelajahi panduan →</a>
           {% elif module.slug == 'death-clock' %}
@@ -74,7 +73,6 @@
         </div>
         <h3 class="font-display text-xl font-semibold">{{ module.name }}</h3>
         <p class="text-sm text-bone-200">{{ module.description }}</p>
-        <p class="mt-auto text-sm pn-muted">{{ module.owner }}</p>
       </article>
     {% endfor %}
   </div>

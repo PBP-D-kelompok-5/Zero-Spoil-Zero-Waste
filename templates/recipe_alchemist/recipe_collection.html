@@ -6,7 +6,6 @@
 <div class="pn-container py-10 md:py-14">
   <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
     <div class="max-w-2xl">
-      <span class="pn-badge pn-tone-ecto mb-4">Modul 2 · Recipe Alchemist</span>
       <h1 class="pn-heading">{% if scope == 'mine' %}Koleksi resepku{% else %}Resep dari komunitas{% endif %}</h1>
     </div>
     {% if user.is_authenticated %}
@@ -49,4 +48,4 @@
     {% endif %}
   </section>
 </div>
-{% endblock content %}
+{% endblock content %}

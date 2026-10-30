@@ -5,6 +5,10 @@
    dengan transisi latar siluet interaktif berbasis warna aksen.
    ========================================================= */
 
+/* v3: font Almanak & Grimoire (Grenze Gotisch, Atkinson Hyperlegible Next, Space Mono) */
+@import url("https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@500..900&family=Atkinson+Hyperlegible+Next:wght@400..800&family=Space+Mono:wght@400;700&display=swap");
+
+
 :root,
 html[data-theme="dark"] {
   color-scheme: dark;
@@ -440,4 +444,412 @@ html:not([data-theme="light"]) .pn-world-graveyard {
   .pn-ecto-wisp {
     animation: none !important;
   }
+}
+
+/* =========================================================
+   v3 · ALMANAK & GRIMOIRE — lapisan tampilan (CSS saja)
+   ---------------------------------------------------------
+   Melanjutkan konsep Siang/Malam dari v2 (latar desa ↔ kuburan):
+   • Siang  = almanak dapur & label kemasan: kertas krem, tinta hitam,
+              garis tegas, bayangan cetak (offset) tanpa blur.
+   • Malam  = grimoire: kertas tinta gelap, garis kapur, sorot ecto.
+   Nama kelas & nama token TIDAK berubah; bagian ini hanya menimpa
+   nilai token dan gaya komponen di atas. Hapus seluruh bagian ini
+   untuk kembali ke tampilan v2.
+   Inspirasi: Oatly (garis tinta, bayangan cetak, halftone),
+   Fishwife (warna tinta kemasan vintage), Cult of the Lamb
+   (imut-seram, pita miring, nuansa ritual).
+   ========================================================= */
+
+/* ---------- Token v3 ---------- */
+:root,
+html[data-theme="dark"] {
+  /* Malam — grimoire: tinta ungu-hitam, bukan hijau dasbor */
+  --pn-crypt-950: 21 19 26;    /* #15131A halaman */
+  --pn-crypt-900: 30 27 36;    /* #1E1B24 kartu */
+  --pn-crypt-800: 43 39 51;    /* #2B2733 permukaan terangkat */
+  --pn-crypt-700: 150 141 122; /* #968D7A garis kapur */
+
+  --pn-bone-50: 242 234 216;   /* #F2EAD8 teks utama */
+  --pn-bone-200: 212 203 183;  /* #D4CBB7 */
+  --pn-bone-400: 165 156 138;  /* #A59C8A */
+
+  --pn-ecto-300: 190 244 140;  /* #BEF48C */
+  --pn-ecto-400: 158 226 103;  /* #9EE267 */
+  --pn-ember-400: 245 183 74;  /* #F5B74A */
+  --pn-blood-400: 245 117 101; /* #F57565 */
+  --pn-hex-400: 190 166 255;   /* #BEA6FF */
+  --pn-frost-400: 124 209 223; /* #7CD1DF */
+
+  --pn-radius: 6px;
+  --pn-line: 1.5px;
+  --pn-ink: 0 0 0;             /* warna bayangan cetak */
+  --pn-ink-a: 0.6;
+  --pn-card-alpha: 0.95;
+  /* Stabilo pada kata yang ditekankan di judul */
+  --pn-hl-ecto: 158 226 103 / 0.34;
+  --pn-hl-blood: 245 117 101 / 0.34;
+  --pn-hl-ember: 245 183 74 / 0.34;
+  --pn-hl-hex: 190 166 255 / 0.34;
+  --pn-hl-frost: 124 209 223 / 0.34;
+  --pn-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .52 0 0 0 0 .48 0 0 0 .55 -.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  --pn-font-display: "Grenze Gotisch", "Grenze", Georgia, serif;
+  --pn-font-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --pn-font-mono: "Space Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+html[data-theme="light"] {
+  /* Siang — almanak dapur: kertas krem & tinta cetak */
+  --pn-crypt-950: 243 234 214; /* #F3EAD6 kertas */
+  --pn-crypt-900: 251 246 234; /* #FBF6EA kartu */
+  --pn-crypt-800: 233 221 194; /* #E9DDC2 permukaan terangkat */
+  --pn-crypt-700: 38 33 28;    /* #26211C garis tinta */
+
+  --pn-bone-50: 31 27 22;      /* #1F1B16 tinta */
+  --pn-bone-200: 70 61 50;     /* #463D32 */
+  --pn-bone-400: 108 97 82;    /* #6C6152 */
+
+  --pn-ecto-300: 34 116 50;    /* #227432 tautan */
+  --pn-ecto-400: 44 108 52;    /* #2C6C34 hijau botol */
+  --pn-ember-400: 168 89 8;    /* #A85908 mustard gosong */
+  --pn-blood-400: 188 50 37;   /* #BC3225 merah tomat */
+  --pn-hex-400: 103 62 166;    /* #673EA6 ungu plum */
+  --pn-frost-400: 20 101 125;  /* #14657D biru kaleng */
+
+  --pn-ink: 38 33 28;
+  --pn-ink-a: 1;
+  --pn-card-alpha: 1;
+  --pn-hl-ecto: 184 226 110 / 0.9;
+  --pn-hl-blood: 247 168 148 / 0.9;
+  --pn-hl-ember: 246 206 104 / 0.9;
+  --pn-hl-hex: 208 190 246 / 0.9;
+  --pn-hl-frost: 156 214 226 / 0.9;
+}
+
+/* ---------- Dasar & tipografi ---------- */
+.pn-body {
+  font-family: var(--pn-font-body);
+  background-image: var(--pn-grain);
+  background-size: 180px 180px;
+  font-size: 1rem;
+}
+html .font-sans { font-family: var(--pn-font-body); }
+html .font-mono { font-family: var(--pn-font-mono); }
+
+.pn-display,
+.pn-heading,
+html .font-display,
+html .dd-summary-card__label {
+  font-family: var(--pn-font-display);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.pn-display { font-size: clamp(2.7rem, 6.6vw, 4.75rem); line-height: 0.98; }
+.pn-heading { font-size: clamp(1.9rem, 3.4vw, 2.6rem); line-height: 1.04; }
+html .font-display.italic,
+html .font-display .italic { font-style: normal; }
+
+/* Kata yang ditekankan di judul: stabilo, bukan huruf miring berwarna */
+.pn-display .italic,
+.pn-heading .italic {
+  --pn-hl: var(--pn-hl-ecto);
+  font-style: normal;
+  color: inherit;
+  background-image: linear-gradient(to top, transparent 0.1em, rgb(var(--pn-hl)) 0.1em 0.46em, transparent 0.46em);
+  padding: 0 0.08em;
+  margin: 0 -0.04em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.pn-display .text-blood-400, .pn-heading .text-blood-400 { --pn-hl: var(--pn-hl-blood); }
+.pn-display .text-ember-400, .pn-heading .text-ember-400 { --pn-hl: var(--pn-hl-ember); }
+.pn-display .text-hex-400, .pn-heading .text-hex-400 { --pn-hl: var(--pn-hl-hex); }
+.pn-display .text-frost-400, .pn-heading .text-frost-400 { --pn-hl: var(--pn-hl-frost); }
+
+.pn-lead { font-size: 1.125rem; line-height: 1.55; }
+
+/* ---------- Tombol: cap tinta yang bisa ditekan ---------- */
+.pn-btn {
+  border: 2px solid rgb(var(--pn-crypt-700));
+  border-radius: var(--pn-radius);
+  box-shadow: 3px 3px 0 rgb(var(--pn-ink) / var(--pn-ink-a));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+.pn-btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 rgb(var(--pn-ink) / var(--pn-ink-a)); }
+.pn-btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgb(var(--pn-ink) / var(--pn-ink-a)); }
+.pn-btn:disabled, .pn-btn[aria-disabled="true"] { transform: none; box-shadow: none; opacity: 0.55; }
+.pn-btn--primary { border-color: rgb(var(--pn-crypt-700)); }
+.pn-btn--secondary { background: rgb(var(--pn-crypt-900)); border-color: rgb(var(--pn-crypt-700)); }
+.pn-btn--secondary:hover { background: rgb(var(--pn-crypt-800)); border-color: rgb(var(--pn-crypt-700)); }
+.pn-btn--danger { background: rgb(var(--pn-blood-400)); color: rgb(var(--pn-crypt-950)); }
+.pn-btn--sm { box-shadow: 2px 2px 0 rgb(var(--pn-ink) / var(--pn-ink-a)); border-width: 1.5px; }
+.pn-btn--sm:hover { box-shadow: 3px 3px 0 rgb(var(--pn-ink) / var(--pn-ink-a)); }
+.pn-btn.pn-btn--ghost,
+.pn-btn.pn-btn--ghost:hover,
+.pn-btn.pn-btn--ghost:active { border-color: transparent; box-shadow: none; transform: none; }
+.pn-btn.pn-btn--ghost:hover { background: rgb(var(--pn-crypt-800)); }
+
+/* ---------- Kartu: lembar kertas dengan bayangan cetak ---------- */
+.pn-card,
+html[data-theme="light"] .pn-card {
+  background-color: rgb(var(--pn-crypt-900) / var(--pn-card-alpha));
+  background-image: var(--pn-grain);
+  background-size: 180px 180px;
+  border: var(--pn-line) solid rgb(var(--pn-crypt-700));
+  border-radius: calc(var(--pn-radius) + 2px);
+  box-shadow: 5px 5px 0 rgb(var(--pn-ink) / var(--pn-ink-a));
+}
+.pn-card.pn-card--accent,
+html[data-theme="light"] .pn-card.pn-card--accent { border-top: 6px solid rgb(var(--pn-tone)); }
+
+/* ---------- Badge: label cetak / cap ---------- */
+.pn-badge {
+  gap: 0.375rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  border: 1.5px solid rgb(var(--pn-tone));
+  background: rgb(var(--pn-tone) / 0.13);
+  color: rgb(var(--pn-tone));
+  font-family: var(--pn-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.35;
+}
+a.pn-badge { transition: background-color 0.15s, color 0.15s; }
+a.pn-badge:hover { background: rgb(var(--pn-tone)); color: rgb(var(--pn-crypt-950)); }
+/* Status bahan di kartu Death Clock tampil seperti cap kedaluwarsa */
+.dc-card .pn-badge { transform: rotate(-2.5deg); border-style: double; border-width: 3px; }
+
+/* ---------- Form: formulir cetak ---------- */
+.pn-label,
+.pn-form > p > label {
+  font-family: var(--pn-font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--pn-bone-200));
+}
+.pn-input,
+.pn-form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]),
+.pn-form select,
+.pn-form textarea {
+  background: rgb(var(--pn-crypt-900));
+  border: var(--pn-line) solid rgb(var(--pn-crypt-700));
+  border-radius: 4px;
+  box-shadow: inset 2px 2px 0 rgb(var(--pn-ink) / 0.08);
+}
+.pn-input:focus, .pn-form input:focus, .pn-form select:focus, .pn-form textarea:focus {
+  border-color: rgb(var(--pn-ecto-400));
+  box-shadow: 3px 3px 0 rgb(var(--pn-ecto-400));
+}
+.pn-form input[type="checkbox"], .pn-form input[type="radio"] { accent-color: rgb(var(--pn-ecto-400)); }
+
+/* ---------- Alert: catatan yang ditempel ---------- */
+.pn-alert {
+  border: 1.5px solid rgb(var(--pn-tone));
+  border-left-width: 6px;
+  border-radius: 4px;
+  background: rgb(var(--pn-crypt-900));
+  box-shadow: 3px 3px 0 rgb(var(--pn-tone) / 0.55);
+}
+
+/* ---------- Meter: pita sisa umur dengan arsiran ---------- */
+.pn-meter {
+  height: 0.75rem;
+  border-radius: 2px;
+  background: rgb(var(--pn-crypt-800));
+  border: 1.5px solid rgb(var(--pn-crypt-700));
+}
+.pn-meter__fill {
+  border-radius: 0;
+  background: repeating-linear-gradient(-45deg, rgb(var(--pn-tone)) 0 6px, rgb(var(--pn-tone) / 0.72) 6px 9px);
+}
+
+/* ---------- Lain-lain ---------- */
+.pn-link { text-decoration-thickness: 2px; }
+.pn-avatar { border-radius: 4px; border: 1.5px solid rgb(var(--pn-hex-400)); font-family: var(--pn-font-mono); }
+
+/* ---------- Navbar: kop almanak ---------- */
+.pn-nav {
+  background: rgb(var(--pn-crypt-950) / 0.94);
+  backdrop-filter: blur(6px);
+  border-bottom: 4px double rgb(var(--pn-crypt-700));
+}
+.pn-nav__link {
+  font-family: var(--pn-font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 3px;
+}
+.pn-nav__link.is-active,
+.pn-nav__link[aria-current="page"] {
+  background: rgb(var(--pn-hl-ecto));
+  color: rgb(var(--pn-bone-50));
+  box-shadow: inset 0 -2px 0 rgb(var(--pn-crypt-700));
+}
+.pn-theme-toggle {
+  border: 1.5px solid rgb(var(--pn-crypt-700));
+  box-shadow: 2px 2px 0 rgb(var(--pn-ink) / var(--pn-ink-a));
+  font-family: var(--pn-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.pn-body > footer { border-top: 4px double rgb(var(--pn-crypt-700)); font-family: var(--pn-font-mono); font-size: 0.75rem; }
+
+/* ---------- Latar ambient (desain Adam): siluet seperti cetak tinta ---------- */
+.pn-ambient__horizon { opacity: 0.38; }
+html[data-theme="light"] .pn-ambient__horizon { mix-blend-mode: multiply; }
+html:not([data-theme="light"]) .pn-ambient__sky-glow { opacity: 0.7; }
+
+/* ---------- Penyesuaian kelas modul (tetap CSS saja) ---------- */
+.pn-body .dc-tile {
+  background: rgb(var(--pn-crypt-900));
+  border: var(--pn-line) solid rgb(var(--pn-crypt-700));
+  border-radius: calc(var(--pn-radius) + 2px);
+  box-shadow: 4px 4px 0 rgb(var(--pn-ink) / var(--pn-ink-a));
+  transition: transform 0.12s, box-shadow 0.12s, background-color 0.15s;
+}
+.pn-body .dc-tile:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 rgb(var(--pn-ink) / var(--pn-ink-a)); border-color: rgb(var(--pn-crypt-700)); }
+.pn-body .dc-tile.is-active { background: rgb(var(--pn-tone) / 0.16); box-shadow: 4px 4px 0 rgb(var(--pn-tone)); border-color: rgb(var(--pn-crypt-700)); }
+.pn-body .dc-tile .font-display { font-size: 2.5rem; line-height: 0.9; }
+.pn-body .dc-tile__label,
+.pn-body .dd-eyebrow { font-family: var(--pn-font-mono); }
+.pn-body .dc-stepper { border: var(--pn-line) solid rgb(var(--pn-crypt-700)); border-radius: 4px; }
+.pn-body .dc-dialog { border: 2px solid rgb(var(--pn-crypt-700)); border-radius: calc(var(--pn-radius) + 2px); box-shadow: 8px 8px 0 rgb(var(--pn-ink) / var(--pn-ink-a)); }
+.pn-body .dc-toast { border: 1.5px solid rgb(var(--pn-crypt-700)); box-shadow: 4px 4px 0 rgb(var(--pn-ink) / var(--pn-ink-a)); }
+.pn-body .dd-summary-card.is-active { box-shadow: 4px 4px 0 rgb(var(--pn-tone)); }
+.pn-body .dd-summary-card:hover { transform: translate(-1px, -1px); }
+.pn-body #dead-drop-map { border: var(--pn-line) solid rgb(var(--pn-crypt-700)); border-radius: 4px; }
+
+/* ---------- Layar sempit ---------- */
+@media (max-width: 420px) {
+  .pn-nav .font-display { font-size: 1rem; line-height: 1.05; }
+  .pn-theme-toggle { padding: 0.375rem 0.55rem; letter-spacing: 0; gap: 0.35rem; }
+  .pn-body .dc-tile__label { letter-spacing: 0.02em; font-size: 0.6875rem; }
+  .pn-badge { letter-spacing: 0.03em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pn-btn, .pn-btn:hover, .pn-btn:active, .pn-body .dc-tile:hover { transform: none; }
+}
+
+/* =========================================================
+   v3 · LAYOUT BERANDA (CSS saja) — kartu modul berjajar + ilustrasi
+   Kelima kartu selalu satu baris kiri→kanan; bila layar terlalu
+   sempit, baris bisa digeser ke samping. Ilustrasi dipasang lewat
+   id kartu (#death-clock, #recipe-alchemist, …) tanpa mengubah HTML.
+   ========================================================= */
+#modul > .grid {
+  grid-template-columns: repeat(5, minmax(11.5rem, 1fr));
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  padding: 0.25rem 0.5rem 0.875rem 0.25rem; /* ruang untuk bayangan cetak */
+  margin: -0.25rem -0.5rem -0.875rem -0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--pn-crypt-700)) transparent;
+  counter-reset: pn-modul;
+}
+#modul > .grid > article.pn-card {
+  --pn-ikon-pad: 1.125rem;
+  position: relative;
+  min-width: 0;
+  gap: 0.6rem;
+  padding: var(--pn-ikon-pad);
+  counter-increment: pn-modul;
+  scroll-snap-align: start;
+}
+/* Panel gambar bertekstur titik (halftone) */
+#modul > .grid > article.pn-card::before {
+  content: "";
+  order: -1;
+  display: block;
+  height: 6.5rem;
+  margin-bottom: 0.15rem;
+  border: var(--pn-line) solid rgb(var(--pn-crypt-700));
+  border-radius: 4px;
+  background-color: rgb(var(--pn-tone) / 0.1);
+  background-image: radial-gradient(rgb(var(--pn-tone) / 0.3) 1px, transparent 1.4px);
+  background-size: 7px 7px;
+}
+/* Ilustrasi garis satu warna, mengikuti warna tone modul di kedua tema */
+#modul > .grid > article.pn-card::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--pn-ikon-pad) + 0.75rem + var(--pn-line));
+  left: 50%;
+  width: 5rem;
+  height: 5rem;
+  margin-left: -2.5rem;
+  background-color: rgb(var(--pn-tone));
+  -webkit-mask: var(--pn-ikon-modul) center / contain no-repeat;
+  mask: var(--pn-ikon-modul) center / contain no-repeat;
+  transition: transform 0.25s ease;
+  pointer-events: none;
+}
+#modul > .grid > article.pn-card:hover::after { transform: rotate(-6deg) scale(1.05); }
+#modul #death-clock { --pn-ikon-modul: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='19' y='5' width='26' height='7' rx='2'/%3E%3Cpath d='M17 12h30a4 4 0 0 1 4 4v34a9 9 0 0 1-9 9H22a9 9 0 0 1-9-9V16a4 4 0 0 1 4-4z'/%3E%3Cpath d='M13 22h38' stroke-dasharray='2 4'/%3E%3Ccircle cx='32' cy='40' r='11'/%3E%3Cpath d='M32 33v7l5 3'/%3E%3Cpath d='M32 30.5v0.1M41.5 40h-0.1M22.5 40h0.1M32 49.5v-0.1' stroke-width='3.4'/%3E%3C/svg%3E"); }
+#modul #recipe-alchemist { --pn-ikon-modul: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M25 5h14'/%3E%3Cpath d='M28 5v15L13 46a7 7 0 0 0 6 10h26a7 7 0 0 0 6-10L36 20V5'/%3E%3Cpath d='M18 38c5-3 9 3 14 0s9 3 14 0'/%3E%3Ccircle cx='26' cy='47' r='2.6'/%3E%3Ccircle cx='36' cy='49' r='1.8'/%3E%3Ccircle cx='33' cy='43' r='1.4'/%3E%3Cpath d='M40 13c1-5 6-8 12-7-1 6-6 9-12 7z'/%3E%3Cpath d='M40 13l6-4'/%3E%3C/svg%3E"); }
+#modul #dead-drop { --pn-ikon-modul: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 27h28l2 30H8z'/%3E%3Cpath d='M17 27v-4a7 7 0 0 1 14 0v4'/%3E%3Cpath d='M24 49l-5-5a3.2 3.2 0 0 1 5-4 3.2 3.2 0 0 1 5 4z'/%3E%3Cpath d='M48 4a9 9 0 0 1 9 9c0 7-9 17-9 17s-9-10-9-17a9 9 0 0 1 9-9z'/%3E%3Ccircle cx='48' cy='13' r='3'/%3E%3Cpath d='M44 38c2 3 6 4 9 2' stroke-dasharray='1 4'/%3E%3C/svg%3E"); }
+#modul #graveyard { --pn-ikon-modul: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 55V25a16 16 0 0 1 32 0v30'/%3E%3Cpath d='M6 55h52'/%3E%3Cpath d='M32 24v-4M32 21c2-3 5-3 6-2'/%3E%3Cpath d='M28 26c-2.5 2-2.5 9 0 11M36 26c2.5 2 2.5 9 0 11M28 26h8M28 37h8'/%3E%3Cpath d='M25 44h14M27 49h10'/%3E%3Cpath d='M9 55l2-5 2 5M51 55l2-5 2 5'/%3E%3C/svg%3E"); }
+#modul #grimoire { --pn-ikon-modul: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M32 17c-6-4-14-5-23-4v37c9-1 17 0 23 4 6-4 14-5 23-4V13c-9-1-17 0-23 4z'/%3E%3Cpath d='M32 17v37'/%3E%3Cpath d='M15 23c4 0 8 1 11 3M15 31c4 0 8 1 11 3M15 39c4 0 8 1 11 3'/%3E%3Cpath d='M38 33c1-6 6-10 12-9-1 6-6 10-12 9zM38 33l7-5'/%3E%3Cpath d='M48 2l1.4 3.4L53 7l-3.6 1.6L48 12l-1.4-3.4L43 7l3.6-1.6z' stroke-width='2'/%3E%3C/svg%3E"); }
+#modul > .grid > article > div:first-child { display: contents; }
+#modul > .grid > article > div:first-child > span:first-child { order: 0; font-size: 0; letter-spacing: 0; }
+#modul > .grid > article > div:first-child > span:first-child::before {
+  content: counter(pn-modul, decimal-leading-zero);
+  display: block;
+  font-family: var(--pn-font-display);
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 0.85;
+  color: rgb(var(--pn-tone));
+}
+#modul > .grid > article > h3 { order: 1; font-size: 1.3rem; line-height: 1.1; }
+#modul > .grid > article > p { order: 2; }
+#modul > .grid > article > div:first-child > :last-child { order: 3; margin-top: auto; align-self: flex-start; }
+#modul > .grid > article .pn-badge { white-space: nowrap; font-size: 0.625rem; letter-spacing: 0.03em; }
+@media (prefers-reduced-motion: reduce) {
+  #modul > .grid > article.pn-card:hover::after { transform: none; }
+}
+
+/* =========================================================
+   v3 · LAYOUT NAVBAR (CSS saja) — kop almanak dua baris (desktop)
+   Baris 1: logo besar di tengah, aksi di kanan. Baris 2: menu fitur.
+   Hanya baris header pertama yang diubah; panel menu HP (#nav-mobile)
+   tidak disentuh.
+   ========================================================= */
+@media (min-width: 1024px) {
+  .pn-nav > .pn-container:first-child {
+    height: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas:
+      ".     logo  actions"
+      "links links links";
+    column-gap: 1rem;
+    row-gap: 0;
+    padding-top: 0.6rem;
+  }
+  .pn-nav > .pn-container:first-child > a:first-child { grid-area: logo; justify-self: center; gap: 0.75rem; }
+  .pn-nav > .pn-container:first-child > a:first-child img { width: 2.5rem; height: 2.5rem; }
+  .pn-nav > .pn-container:first-child > a:first-child .font-display { font-size: 2rem; line-height: 1; }
+  .pn-nav > .pn-container:first-child > div:nth-child(2) {
+    grid-area: links;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+    padding: 0.35rem 0;
+    border-top: var(--pn-line) solid rgb(var(--pn-crypt-700));
+  }
+  .pn-nav > .pn-container:first-child > div:nth-child(3) { grid-area: actions; justify-self: end; }
+  .pn-nav > #nav-mobile { display: none; }
 }
