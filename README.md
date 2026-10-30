@@ -2,6 +2,10 @@
 
 > Platform web gaya hidup berkelanjutan berbasis Django untuk mata kuliah Pemrograman Berbasis Platform (CSGE602022), Fakultas Ilmu Komputer, Universitas Indonesia (Semester Gasal 2026/2027).
 
+<p align="center">
+  <img src="static/bahanreadme/haldepan.png" alt="Beranda Pantry Necromancer" width="100%" />
+</p>
+
 ---
 
 ## 🔗 Tautan Penting
@@ -28,6 +32,27 @@
 Limbah makanan rumah tangga menyumbang hampir 40% dari total sampah makanan dunia. Mahasiswa dan perantau yang tinggal di kamar sewa (*kost*) merupakan salah satu kelompok rentan akibat kebiasaan belanja yang tidak terencana, jadwal perkuliahan yang padat, serta minimnya kepercayaan diri dalam mengolah sisa bahan masakan di kulkas bersama. Bahan makanan segar sering kali membusuk tanpa disadari, menimbulkan kerugian finansial sekaligus memicu emisi gas metana di tempat pembuangan akhir.
 
 **Pantry Necromancer** hadir sebagai solusi berbasis *food triage* yang digamifikasi. Melalui pemantauan masa kedaluwarsa secara visual ("Death Clock"), rekomendasi resep darurat dari sisa bahan makanan, hingga fitur berbagi bahan berlebih dengan sesama penghuni kost terdekat, platform ini membantu pengguna memaksimalkan nilai konsumsi setiap bahan pangan sebelum terbuang sia-sia ke tempat sampah.
+
+### ✨ Tampilan Antarmuka & Tema Dinamis (Siang / Malam)
+
+<table>
+  <tr>
+    <td width="55%" align="center">
+      <img src="static/bahanreadme/siangmalamfullpageanim.gif" alt="Transisi Tema Siang dan Malam" width="100%" /><br />
+      <sub><b>Transisi Tema Siang & Malam</b> — Perubahan palet warna dan ilustrasi latar belakang secara menyeluruh</sub>
+    </td>
+    <td width="45%" align="center">
+      <img src="static/bahanreadme/siangmalam.gif" alt="Toggle Siang dan Malam" width="100%" /><br />
+      <sub><b>Toggle Mode Siang / Malam</b> — Animasi pergantian matahari & bulan pada header</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="static/bahanreadme/frontmoduleanimshowcase.gif" alt="Showcase 5 Modul Utama" width="100%" /><br />
+      <sub><b>Navigasi 5 Modul Utama</b> — Kartu interaktif untuk setiap modul di halaman beranda</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
@@ -67,6 +92,25 @@ Setiap modul dikembangkan secara independen oleh satu anggota kelompok dan memen
 * **Otentikasi & keamanan:** Data privat per pengguna (bahan milik orang lain → 404); tamu melihat halaman pengenalan; endpoint yang mengubah data dibatasi per pengguna per menit (`rate_limit` di `main/auth.py`, 429 + `Retry-After`), begitu pula percobaan login yang gagal.
 * **Data contoh:** Tombol "Isi 50 bahan contoh" pada inventaris kosong (mis. akun demo di PWS) atau command `seed_death_clock`.
 
+<table>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="static/bahanreadme/inventarisdeathclock.png" alt="Inventaris Aktif Death Clock" width="100%" /><br />
+      <sub><b>Dasbor Inventaris Aktif</b> — Kartu bahan makanan dengan indikator masa simpan (<i>Flatlining</i>, <i>Critical</i>, <i>Stable</i>) dan tombol aksi cepat</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="static/bahanreadme/tambahbahan.gif" alt="Tambah Bahan Death Clock" width="100%" /><br />
+      <sub><b>Tambah Bahan via Modal AJAX</b> — Menambahkan bahan baru tanpa memuat ulang halaman</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="static/bahanreadme/filterdeathclock.gif" alt="Filter Death Clock" width="100%" /><br />
+      <sub><b>Filter & Pencarian Instan</b> — Menyaring inventaris berdasarkan status urgensi dan kategori</sub>
+    </td>
+  </tr>
+</table>
+
 ### 2. Recipe Alchemist (Penyelamat Resep & Integrasi API Publik) — *Nuno Mikael Nugroho*
 * **Deskripsi:** Mesin pencari resep yang mencocokkan bahan yang diketik dan isi inventaris Death Clock dengan resep dari Spoonacular, koleksi pribadi, dan resep komunitas.
 * **Model:** Satu model `Recipe` untuk semua jenis resep: kustom buatan pengguna atau disimpan dari Spoonacular (`source`), dengan bahan, langkah memasak, waktu masak, diet, catatan pribadi, dan status publik/pribadi (`is_public`). Resep yang disimpan dari API berfungsi sebagai *bookmark* yang tetap bisa diubah, dan catatan modifikasi memasak ada di field `notes`. Satu resep API hanya bisa disimpan sekali per pengguna (`UniqueConstraint`).
@@ -79,6 +123,19 @@ Setiap modul dikembangkan secara independen oleh satu anggota kelompok dan memen
 * **Integrasi API:** Spoonacular `findByIngredients` + `informationBulk` (lihat tabel API di bawah).
 * **Interaktivitas:** Tombol "Simpan resep" memakai `fetch` (AJAX): kartu langsung berubah menjadi "Tersimpan" tanpa memuat ulang halaman. Pencarian dan filter memakai form `GET` sehingga URL hasil bisa dibagikan. Tanpa JavaScript, tombol simpan tetap bekerja lewat `POST` biasa.
 * **Otentikasi & keamanan:** Tamu boleh mencari dan melihat resep komunitas; menulis atau menyimpan resep butuh login. Resep pribadi milik pengguna lain dan semua aksi ubah/hapus milik orang lain mengembalikan `404`. Catatan pribadi tidak tampil pada resep publik.
+
+<table>
+  <tr>
+    <td width="55%" align="center">
+      <img src="static/bahanreadme/alchemisttapiapinyahabis.gif" alt="Pencarian & Koleksi Recipe Alchemist" width="100%" /><br />
+      <sub><b>Pencarian Resep & Koleksi Komunitas</b> — Pencocokan bahan Death Clock serta fallback ke resep lokal/komunitas</sub>
+    </td>
+    <td width="45%" align="center">
+      <img src="static/bahanreadme/alchemistform.png" alt="Form Resep Kustom Recipe Alchemist" width="100%" /><br />
+      <sub><b>Formulir Resep Kustom</b> — Menulis dan membagikan resep penyelamat buatan sendiri</sub>
+    </td>
+  </tr>
+</table>
 
 ### 3. The Dead Drop (Berbagi Makanan Lokal / Anak Kost) — *Joshua Carnsyn Suyanto Sidik*
 * **Deskripsi:** Papan berbagi berbasis komunitas mikro bagi penghuni kost atau tetangga untuk membagikan sisa bahan makanan mentah sebelum kedaluwarsa.
@@ -97,6 +154,18 @@ flow status: Available > Reserved > Claimed
 
   * **Interaktivitas dan keamanan:** Reserve, cancel, claim, edit, dan delete menggunakan HTMX agar jika ada update user tidak perlu refresh page. Perubahan status dilakukan dengan pembaruan database bersyarat, sehingga hanya satu permintaan yang berhasil mereservasi atau mengklaim listing yang memenuhi status awal. Fitur selain melihat listing available yang memerlukan autentikasi, dan izin perubahan diperiksa berdasarkan pemilik atau pengguna yang mereservasi.
 
+<table>
+  <tr>
+    <td width="55%" align="center">
+      <img src="static/bahanreadme/klikdeaddrop.gif" alt="Papan & Peta The Dead Drop" width="100%" /><br />
+      <sub><b>Papan Berbagi & Peta Komunitas</b> — Visualisasi titik penjemputan makanan di sekitar kampus/kost dengan Leaflet & OpenStreetMap</sub>
+    </td>
+    <td width="45%" align="center">
+      <img src="static/bahanreadme/carikoordinatdeaddrop.gif" alt="Geocoding Nominatim The Dead Drop" width="100%" /><br />
+      <sub><b>Pencarian Koordinat Otomatis</b> — Geocoding alamat/nama lokasi menjadi latitude & longitude lewat Nominatim API</sub>
+    </td>
+  </tr>
+</table>
 
 ### 4. The Graveyard & Waste Analytics (Pencatatan Limbah & Pelacak Dampak) — *Adam Wahyu Syaputra*
 * **Deskripsi:** Modul akuntabilitas untuk mencatat bahan makanan yang gagal diselamatkan dan mengonversinya ke dalam metrik kerugian finansial (Rp), estimasi jejak karbon ($CO_2e$), serta kartu refleksi limbah (*"The Haunting Wrapped: Bisikan Arwah Pangan"*).
@@ -109,6 +178,25 @@ flow status: Available > Reserved > Claimed
 * **Interaktivitas:** Pencarian langsung (*debounced* 300 ms dengan `AbortController`) dan pemfilteran instan berdasarkan kategori, alasan pembuangan, serta rentang tanggal pembuangan (`date_from` s.d. `date_to`) berjalan lewat `fetch` (AJAX) tanpa memuat ulang halaman dan tetap memperbarui URL. Penghapusan item memakai modal konfirmasi di dalam halaman (*Grim Reaper modal*) dengan animasi pelenyapan baris/kartu, serta langsung memperbarui angka jumlah item dan kartu ringkasan analitik di layar. Carousel *Haunting Wrapped* berjalan otomatis dengan indikator *progress bar* dan tombol jeda/lanjut.
 * **Otentikasi & keamanan:** Riwayat pembuangan bersifat privat per pengguna; tamu melihat halaman pengenalan modul (`graveyard/guest.html`), sedangkan akses atau aksi ubah/hapus/pindah terhadap data milik pengguna lain mengembalikan `404`.
 
+<table>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="static/bahanreadme/graveyardfullshot.png" alt="Halaman Utama The Graveyard" width="100%" /><br />
+      <sub><b>Dasbor The Graveyard & Waste Analytics</b> — Kartu metrik kerugian & emisi CO₂e, carousel refleksi, filter rentang tanggal, dan daftar batu nisan pangan</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="55%" align="center">
+      <img src="static/bahanreadme/wrapped.gif" alt="The Haunting Wrapped Carousel" width="100%" /><br />
+      <sub><b>The Haunting Wrapped: Bisikan Arwah Pangan</b> — Carousel refleksi otomatis dengan progress bar dan kutipan persona bahan</sub>
+    </td>
+    <td width="45%" align="center">
+      <img src="static/bahanreadme/masukgraveyard.gif" alt="Pemindahan Bahan ke Graveyard" width="100%" /><br />
+      <sub><b>Penguburan Bahan dari Death Clock</b> — Formulir konfirmasi pemindahan bahan kedaluwarsa ke dalam neraca limbah Graveyard</sub>
+    </td>
+  </tr>
+</table>
+
 ### 5. Preservation Grimoire & Smell Test (Basis Pengetahuan & Uji Sensori) — *Muhammad Syarifudin*
 * **Deskripsi:** Ensiklopedia interaktif mengenai teknik pengawetan bahan makanan dan panduan uji sensori ("The Smell Test") guna mencegah pembuangan makanan prematur akibat kebingungan label kedaluwarsa.
 * **Model:** Menyimpan artikel tips pengawetan, indikator kelayakan sensori (bau, tekstur, tampilan), dan data dukungan komunitas (*upvotes*).
@@ -118,6 +206,11 @@ flow status: Available > Reserved > Claimed
   * **Update:** Memperbarui konten panduan agar metode pengawetan lebih akurat.
   * **Delete:** Menghapus panduan yang dibuat oleh pengguna yang bersangkutan.
 * **Interaktivitas & Otentikasi:** Fitur *upvote* interaktif berbasis AJAX tanpa memuat ulang laman; pencarian dan pemfilteran instan berdasarkan kategori bahan dan metode pengawetan.
+
+<p align="center">
+  <img src="static/bahanreadme/Grimoireupvote.gif" alt="Preservation Grimoire & Smell Test" width="100%" /><br />
+  <sub><b>Preservation Grimoire & Smell Test</b> — Penelusuran panduan pengawetan komunitas, indikator uji sensori, serta fitur <i>upvote</i> AJAX</sub>
+</p>
 
 ---
 
