@@ -9,6 +9,7 @@ from django.test import RequestFactory, TestCase, override_settings
 from django.urls import resolve, reverse
 
 from main.auth import LoginThrottle, client_ip, rate_limit, guest_page, login_required_ajax
+from main.forms import LoginForm, RegisterForm
 
 
 class MainPageTest(TestCase):
@@ -147,6 +148,53 @@ class AuthTest(TestCase):
         )
 
         self.assertRedirects(response, reverse("main:show_main"))
+
+
+class MainAuthFormsTest(TestCase):
+    def test_register_form_sets_username_and_password_widget_attributes(self):
+        form = RegisterForm()
+
+        self.assertEqual(form.fields["username"].widget.attrs["autocomplete"], "username")
+        self.assertEqual(form.fields["username"].widget.attrs["placeholder"], "mis. necro_kost21")
+        self.assertTrue(form.fields["username"].widget.attrs["autofocus"])
+        self.assertEqual(form.fields["password1"].widget.attrs["autocomplete"], "new-password")
+        self.assertEqual(form.fields["password2"].widget.attrs["autocomplete"], "new-password")
+
+    def test_login_form_sets_username_and_password_widget_attributes(self):
+        form = LoginForm()
+
+        self.assertEqual(form.fields["username"].widget.attrs["autocomplete"], "username")
+        self.assertTrue(form.fields["username"].widget.attrs["autofocus"])
+        self.assertEqual(form.fields["password"].widget.attrs["autocomplete"], "current-password")
+
+
+class MainAuthViewTests(TestCase):
+    def test_register_page_renders_form_and_preserves_next_query(self):
+        response = self.client.get(reverse("main:register"), {"next": "/dead-drop/"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "main/auth/register.html")
+        self.assertIsInstance(response.context["form"], RegisterForm)
+        self.assertEqual(response.context["next"], "/dead-drop/")
+
+    def test_login_page_renders_form_and_preserves_next_query(self):
+        response = self.client.get(reverse("main:login"), {"next": "/dead-drop/"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "main/auth/login.html")
+        self.assertIsInstance(response.context["form"], LoginForm)
+        self.assertEqual(response.context["next"], "/dead-drop/")
+
+    def test_invalid_registration_renders_form_errors_without_creating_user(self):
+        response = self.client.post(reverse("main:register"), {
+            "username": "new_user",
+            "password1": "not-a-strong-password",
+            "password2": "different-password",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["form"].errors)
+        self.assertFalse(User.objects.filter(username="new_user").exists())
 
 
 class GuestPageHelperTest(TestCase):
