@@ -83,13 +83,21 @@ Setiap modul dikembangkan secara independen oleh satu anggota kelompok dan memen
 
 ### 3. The Dead Drop (Berbagi Makanan Lokal / Anak Kost) — *Joshua Carnsyn Suyanto Sidik*
 * **Deskripsi:** Papan berbagi berbasis komunitas mikro bagi penghuni kost atau tetangga untuk membagikan sisa bahan makanan mentah sebelum kedaluwarsa.
-* **Model:** Menyimpan data unggahan surplus makanan, catatan titik temu/penjemputan, koordinat geografis, serta status klaim (`Available`, `Reserved`, `Claimed`).
+* **Model:** Menyimpan nama dan deskripsi makanan, owner dari post, user yang mereservasi, lokasi dan jadwal penjemputan, titik temu notes, latitude, longitude, status listing, dan informasi waktu (pembuatan, update, dan klaim)
+
+flow status: Available > Reserved > Claimed
 * **Fitur CRUD:**
-  * **Create:** Memublikasikan daftar sisa bahan makanan yang siap dijemput oleh pengguna lain.
-  * **Read:** Melihat papan pengumuman bahan makanan komunitas terdekat.
-  * **Update:** Mengubah jadwal penjemputan, deskripsi kondisi makanan, atau status klaim.
-  * **Delete:** Membatalkan unggahan sebelum ada pengguna lain yang mengklaim.
-* **Integrasi API & Interaktivitas:** Integrasi dengan **OpenStreetMap (Nominatim API)** untuk pemetaan lokasi titik temu. Dilengkapi mekanisme penguncian asinkronus (*AJAX claim button*) agar bahan makanan yang diklaim tidak dapat diambil ganda.
+  * **Create:** Memublikasikan daftar sisa bahan makanan yang siap dijemput oleh pengguna lain. Field owner diisi berdasarkan akun yang login dan bukan dari input user.
+  * **Read:** User dapat melihat listing berdasarkan status (available, reserved, claimed). Untuk available dapat dilihat semua orang, sedangkan status lain hanya bisa dilihat oleh owner dan pembuat reservasi. Masing masing di halaman terpisah.
+  * **Update:** Owner dapat mengubah informasi postingannya. Batasan edit adalah field owner, reserved by, dan status. Hanya bisa dilakukan owner.
+  * **Reserve dan cancel** User yang sudah login dan bukan owner dapat reserve listing yang available. User dan Owner dapat membatalkan reservasi.
+  * **Claim** Jika makanan berhasil diantar owner dapat menandai postinganntya sebagai claimed.
+  * **Delete:** Owner dapat membatalkan posting tersedia. Listing yang di claim tidak bisa dihapus
+* **Integrasi API & Interaktivitas:** 
+  * **Peta dan geocoding:** Map menggunakan Leaflet dengan tile OpenStreetMap. Pencarian alama,latitude,dan longitude menggunakan Nominatim. Hasil geocoding yang berhasil disimpan di cache selama 24 jam; pencarian lokasi yang tidak ditemukan di cache selama 5 menit. Permintaan geocoding yang belum tersimpan di cache dibatasi maksimal satu permintaan per detik. Peta show marker listing `Available` dan `Reserved` yang dapat dilihat pengguna. Listing `Claimed` tidak ditampilkan pada peta. Setiap marker dapat menampilkan nama makanan dan lokasi penjemputan.
+
+  * **Interaktivitas dan keamanan:** Reserve, cancel, claim, edit, dan delete menggunakan HTMX agar jika ada update user tidak perlu refresh page. Perubahan status dilakukan dengan pembaruan database bersyarat, sehingga hanya satu permintaan yang berhasil mereservasi atau mengklaim listing yang memenuhi status awal. Fitur selain melihat listing available yang memerlukan autentikasi, dan izin perubahan diperiksa berdasarkan pemilik atau pengguna yang mereservasi.
+
 
 ### 4. The Graveyard & Waste Analytics (Pencatatan Limbah & Pelacak Dampak) — *Adam Wahyu Syaputra*
 * **Deskripsi:** Modul akuntabilitas untuk mencatat bahan makanan yang gagal diselamatkan dan mengonversinya ke dalam metrik kerugian finansial (Rp), estimasi jejak karbon ($CO_2e$), serta kartu refleksi limbah (*"The Haunting Wrapped: Bisikan Arwah Pangan"*).
@@ -119,7 +127,7 @@ Setiap modul dikembangkan secara independen oleh satu anggota kelompok dan memen
 | Sumber | Dipakai oleh | Kegunaan | Dokumentasi |
 | :--- | :--- | :--- | :--- |
 | **Spoonacular Food API** | Recipe Alchemist | `GET /recipes/findByIngredients` untuk mencari resep dari sisa bahan, lalu `GET /recipes/informationBulk` untuk durasi memasak, diet, dan tautan sumber | https://spoonacular.com/food-api/docs |
-| **OpenStreetMap Nominatim** | The Dead Drop | Geocoding alamat titik temu menjadi koordinat peta | https://nominatim.org/release-docs/latest/api/Overview/ |
+| **OpenStreetMap Nominatim** | The Dead Drop | Geocoding nama atau alamat lokasi di Indonesia menjadi latitude dan longitude untuk marker peta | [Dokumentasi Nominatim](https://nominatim.org/release-docs/latest/api/Overview/) |
 
 **Penanganan data eksternal (Spoonacular)**
 * Dipanggil dari server (`recipe_alchemist/services.py`), sehingga API key tidak pernah sampai ke browser.
@@ -144,6 +152,7 @@ PantryNecromancer/      # settings & URL utama
 main/                   # landing page, autentikasi, alur login bersama
 death_clock/            # Modul 1
 recipe_alchemist/       # Modul 2
+dead_drop/              # Modul 3
 graveyard/              # Modul 4
 preservation_grimoire/  # Modul 5
 templates/              # base.html, partials/ (header, footer, messages, form_field), 404/500, template per modul
@@ -238,6 +247,6 @@ Kami menggunakan alat AI selama pengembangan. Setiap anggota bertanggung jawab m
 | :--- | :--- | :--- | :--- | :--- |
 | Michael Evan Putra Nugroho | Claude (aplikasi Claude, mode Cowork) | Kerangka awal Django & design system v1, landing page + autentikasi, implementasi Modul Death Clock beserta test, audit progres & keamanan tim, penyeragaman alur autentikasi lintas modul (`main/auth.py`), perbaikan tampilan Grimoire, form "kubur" Graveyard, halaman 404/500, diagnosis galat deployment | Memberi spesifikasi tugas, palet & struktur folder yang diinginkan, batasan (Bahasa Indonesia, AI tidak boleh melakukan aksi Git), lalu meminta AI menjalankan test dan menunjukkan bukti sebelum perubahan diterapkan | AI sempat mengubah line ending file menjadi CRLF sehingga diff PR membengkak; usulan memindahkan `SECRET_KEY` dibatalkan sesuai arahan dosen; AI tidak dapat mengakses log PWS dan CDN Tailwind sehingga pengecekan dilakukan manual. Seluruh commit, review, dan konfigurasi PWS dilakukan sendiri. |
 | Nuno Mikael Nugroho | Claude | Kerangka awal template HTML untuk halaman Recipe Alchemist, bantu menulis tes, implementasi integrasi API Spoonacular dan mengatur pembatasannya, perbaikan bug pada implementasi form, menambahkan komen-komen pembantu | Memberi ide yang ingin diimplementasi, lalu menggunakan kode yang diberi AI sebagai contoh awal serta meminta menjelaskan dan memperbaiki bug jika ditemukan. | Claude awalnya mengintegrasi API Spoonacular pada search form dengan menampilkan 24 resep dan ini cepat menghabiskan kuota API-nya sehingga harus diganti menjadi angka yang lebih kecil (dipilih angka 12). Commit dan review di github dilakukan sendiri. |
-| Joshua Carnsyn Suyanto Sidik | `[isi]` | `[isi]` | `[isi]` | `[isi]` |
+| Joshua Carnsyn Suyanto Sidik | Chat Gpt 6 Luna medium | Membantu dalam design, test, flow tdd, logika penggunaan api openStreetMap (penamilan map, geocoding,  dan javascriptnya). Untuk design css sebagian besar dilakukan oleh AI tetapi kerangka utama seperti informasi yang harus di tampilkan dan flow dari page dead drop dibuat sendiri. | Dalam setiap sesi selalu diawali dengan pernyataan ulang peran AI tersebut, recap terakhir sampai dimana, dan menyuruh AI membaca ulang seluruh code pada folder. Saat ingin melakukan sesuatu prompt akan berisi 3 bagian utama: context, information, task. Dengan ini AI dapat mengerti tanpa ambiguitas. Selain ini dalam prompt ada juga penambahan batasan dimana AI tidak boleh mengedit langsung dan memberi code secara langsung. Dikarenakan ini dibuat dengan codex maka AI rawan mengubah code tanpa izin yang membuat user dapat kebingungan dan tidak mengerti code. | Saat mengaplikasikan openStreetMap API untuk menampilkan map pada halaman dead drop, map menunjukkan error 403. Disini saya membuat perbaikan manual dengan menelusuri terms of condition dari penggunaan API tersebut. Yang ternyata kode yang dibuat oleh AI tidak mengirim header referer yang dibutuhkan tile. Hal ini dikarenkana referrer policy django membatasi header itu sendiri saat meminta ke domain lain. Sehingga dapat diperbaiki dengan mengatur kebijakannya agar situs dikirim ke server openstreemap dan memakai url resmi |
 | Adam Wahyu Syaputra | Gemini (Google Antigravity) | Kerangka awal template HTML halaman Graveyard, bantu menyusun perhitungan agregasi analitik kerugian dan jejak karbon, implementasi filter pencarian AJAX dan modal konfirmasi hapus, serta membantu menulis unit test dan komentar penjelas | Memberi ide fitur yang ingin diimplementasi beserta struktur modelnya, menggunakan kode contoh yang diberikan sebagai acuan awal, lalu meminta penjelasan alur kode serta perbaikan ketika ditemukan bug saat diuji coba. | Kode awal untuk carousel *Haunting Wrapped* sempat membuat slide bertumpuk saat pergantian dan tombol pause ikut ter-reset ketika kursor keluar dari kartu, sehingga tata letak dan penyimpanan state pause harus diperbaiki. Pencocokan kata kunci bahan pada teks refleksi juga sempat salah mendeteksi kata umum (seperti suku kata `mi` pada kata `misterius`) sehingga logika pencocokan dan unit test disesuaikan kembali. Commit dan review di GitHub dilakukan sendiri. |
 | Muhammad Syarifudin | `[isi]` | `[isi]` | `[isi]` | `[isi]` |
