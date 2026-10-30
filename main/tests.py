@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser, User
@@ -7,7 +8,7 @@ from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import resolve, reverse
 
-from main.auth import LoginThrottle, client_ip, rate_limit
+from main.auth import LoginThrottle, client_ip, rate_limit, guest_page, login_required_ajax
 
 
 class MainPageTest(TestCase):
@@ -139,6 +140,70 @@ class AuthTest(TestCase):
             response = self.client.get(reverse(url_name))
             self.assertRedirects(response, reverse('main:show_main'))
 
+    def test_login_ignores_external_next_from_get(self):
+        response = self.client.post(
+            f"{reverse('main:login')}?next=https://contoh-jahat.com/",
+            {"username": "zombie", "password": self.password},
+        )
+
+        self.assertRedirects(response, reverse("main:show_main"))
+
+
+class GuestPageHelperTest(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view = guest_page(
+            "main/home.html",
+            {"test_message": "Guest introduction"},
+        )(lambda request: HttpResponse("private page"))
+
+    def test_guest_sees_the_guest_page(self):
+        request = self.factory.get("/")
+        request.user = AnonymousUser()
+
+        response = self.view(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/html; charset=utf-8")
+
+    def test_guest_json_request_gets_unauthorized_response(self):
+        request = self.factory.get("/?format=json")
+        request.user = AnonymousUser()
+
+        response = self.view(request)
+        payload = json.loads(response.content)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(payload["ok"])
+
+    def test_authenticated_user_reaches_the_wrapped_view(self):
+        request = self.factory.get("/")
+        request.user = User.objects.create_user(
+            username="guest_page_test",
+            password="test-password",
+        )
+
+        response = self.view(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"private page")
+
+
+class LoginRequiredAjaxTest(TestCase):
+    def test_guest_htmx_request_redirects_to_login(self):
+        factory = RequestFactory()
+        view = login_required_ajax(lambda request: HttpResponse("private page"))
+        request = factory.get(
+            "/private/?tab=food",
+            HTTP_HX_REQUEST="true",
+        )
+        request.user = AnonymousUser()
+
+        response = view(request)
+
+        self.assertEqual(response.status_code, 204)
+        self.assertIn("HX-Redirect", response)
+        self.assertIn("next=/private/%3Ftab%3Dfood", response["HX-Redirect"])
 
 @override_settings(DEBUG=False, ALLOWED_HOSTS=['testserver'])
 class ErrorPageTest(TestCase):
@@ -226,3 +291,4 @@ class RateLimitHelperTest(TestCase):
             view = rate_limit('test:expired', limit=1)(lambda request: HttpResponse('ok'))
             request.user = AnonymousUser()
             self.assertEqual(view(request).status_code, 200)
+
