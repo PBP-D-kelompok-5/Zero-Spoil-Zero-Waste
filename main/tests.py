@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser, User
@@ -7,7 +8,8 @@ from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import resolve, reverse
 
-from main.auth import LoginThrottle, client_ip, rate_limit
+from main.auth import LoginThrottle, client_ip, rate_limit, guest_page, login_required_ajax
+from main.forms import LoginForm, RegisterForm
 
 
 class MainPageTest(TestCase):
@@ -139,6 +141,117 @@ class AuthTest(TestCase):
             response = self.client.get(reverse(url_name))
             self.assertRedirects(response, reverse('main:show_main'))
 
+    def test_login_ignores_external_next_from_get(self):
+        response = self.client.post(
+            f"{reverse('main:login')}?next=https://contoh-jahat.com/",
+            {"username": "zombie", "password": self.password},
+        )
+
+        self.assertRedirects(response, reverse("main:show_main"))
+
+
+class MainAuthFormsTest(TestCase):
+    def test_register_form_sets_username_and_password_widget_attributes(self):
+        form = RegisterForm()
+
+        self.assertEqual(form.fields["username"].widget.attrs["autocomplete"], "username")
+        self.assertEqual(form.fields["username"].widget.attrs["placeholder"], "mis. necro_kost21")
+        self.assertTrue(form.fields["username"].widget.attrs["autofocus"])
+        self.assertEqual(form.fields["password1"].widget.attrs["autocomplete"], "new-password")
+        self.assertEqual(form.fields["password2"].widget.attrs["autocomplete"], "new-password")
+
+    def test_login_form_sets_username_and_password_widget_attributes(self):
+        form = LoginForm()
+
+        self.assertEqual(form.fields["username"].widget.attrs["autocomplete"], "username")
+        self.assertTrue(form.fields["username"].widget.attrs["autofocus"])
+        self.assertEqual(form.fields["password"].widget.attrs["autocomplete"], "current-password")
+
+
+class MainAuthViewTests(TestCase):
+    def test_register_page_renders_form_and_preserves_next_query(self):
+        response = self.client.get(reverse("main:register"), {"next": "/dead-drop/"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "main/auth/register.html")
+        self.assertIsInstance(response.context["form"], RegisterForm)
+        self.assertEqual(response.context["next"], "/dead-drop/")
+
+    def test_login_page_renders_form_and_preserves_next_query(self):
+        response = self.client.get(reverse("main:login"), {"next": "/dead-drop/"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "main/auth/login.html")
+        self.assertIsInstance(response.context["form"], LoginForm)
+        self.assertEqual(response.context["next"], "/dead-drop/")
+
+    def test_invalid_registration_renders_form_errors_without_creating_user(self):
+        response = self.client.post(reverse("main:register"), {
+            "username": "new_user",
+            "password1": "not-a-strong-password",
+            "password2": "different-password",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["form"].errors)
+        self.assertFalse(User.objects.filter(username="new_user").exists())
+
+
+class GuestPageHelperTest(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view = guest_page(
+            "main/home.html",
+            {"test_message": "Guest introduction"},
+        )(lambda request: HttpResponse("private page"))
+
+    def test_guest_sees_the_guest_page(self):
+        request = self.factory.get("/")
+        request.user = AnonymousUser()
+
+        response = self.view(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/html; charset=utf-8")
+
+    def test_guest_json_request_gets_unauthorized_response(self):
+        request = self.factory.get("/?format=json")
+        request.user = AnonymousUser()
+
+        response = self.view(request)
+        payload = json.loads(response.content)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(payload["ok"])
+
+    def test_authenticated_user_reaches_the_wrapped_view(self):
+        request = self.factory.get("/")
+        request.user = User.objects.create_user(
+            username="guest_page_test",
+            password="test-password",
+        )
+
+        response = self.view(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"private page")
+
+
+class LoginRequiredAjaxTest(TestCase):
+    def test_guest_htmx_request_redirects_to_login(self):
+        factory = RequestFactory()
+        view = login_required_ajax(lambda request: HttpResponse("private page"))
+        request = factory.get(
+            "/private/?tab=food",
+            HTTP_HX_REQUEST="true",
+        )
+        request.user = AnonymousUser()
+
+        response = view(request)
+
+        self.assertEqual(response.status_code, 204)
+        self.assertIn("HX-Redirect", response)
+        self.assertIn("next=/private/%3Ftab%3Dfood", response["HX-Redirect"])
 
 @override_settings(DEBUG=False, ALLOWED_HOSTS=['testserver'])
 class ErrorPageTest(TestCase):
@@ -226,3 +339,4 @@ class RateLimitHelperTest(TestCase):
             view = rate_limit('test:expired', limit=1)(lambda request: HttpResponse('ok'))
             request.user = AnonymousUser()
             self.assertEqual(view(request).status_code, 200)
+
