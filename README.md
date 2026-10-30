@@ -6,9 +6,8 @@
 
 ## 🔗 Tautan Penting
 * **Deployment (PWS):** https://michael-evan51-pantry-necromancer.pws.cs.ui.ac.id/
-* **Desain UI/UX (Figma):** [Tautan Prototipe Desain Figma]
+* **Desain UI/UX (Figma):** https://www.figma.com/design/CSdxa6zQOO9W5WI4mnlaJF/Pantry-Necromancer-%E2%80%94-Design-System?node-id=0-1&t=dbdT9UQrUvYxpIFc-1
 * **Repositori Git:** https://github.com/PBP-D-kelompok-5/Zero-Spoil-Zero-Waste
-* **Akun demo:** username `[isi]` · password `[isi]` — sudah berisi data Death Clock & Graveyard
 
 ---
 
