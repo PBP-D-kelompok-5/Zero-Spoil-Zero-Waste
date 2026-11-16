@@ -1,16 +1,19 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from death_clock.models import PantryItem, Storage
 from graveyard.forms import BuryForm
 from graveyard.models import (
     CARBON_FACTORS_PER_KG, Category, DisposalReason, GraveyardItem, Unit,
 )
+from graveyard.serializers import GraveyardItemSerializer
 
 User = get_user_model()
 
@@ -1169,3 +1172,204 @@ class GraveyardDateRangeAndAnalyticsTest(TestCase):
         response = self.client.get(self.list_url)
         self.assertEqual(response.context['analytics']['month_name'], date_format(self.today, 'F Y'))
         self.assertEqual(date_format(date(2026, 10, 1), 'F Y'), 'Oktober 2026')
+
+
+class GraveyardApiTests(TestCase):
+    """Pengujian endpoint DRF /api/graveyard/ untuk aplikasi mobile Flutter."""
+
+    password = 'Necro-API-Password-2026!'
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(username='adam_api', password=self.password)
+        self.other_user = User.objects.create_user(username='tetangga_api', password=self.password)
+        self.today = timezone.localdate()
+        self.api_client = APIClient()
+        self.list_url = reverse('graveyard_api:item-list')
+
+    def _create_item(self, user=None, name='Susu UHT', **kwargs):
+        defaults = {
+            'user': user or self.user,
+            'name': name,
+            'category': Category.DAIRY,
+            'reason': DisposalReason.EXPIRED,
+            'notes': 'Terlupa di kulkas',
+            'expiry_date': self.today - timedelta(days=1),
+            'disposed_at': self.today,
+            'quantity': 1,
+            'unit': Unit.LITER,
+            'weight_g': Decimal('1000.00'),
+            'estimated_loss': Decimal('18000.00'),
+        }
+        defaults.update(kwargs)
+        return GraveyardItem.objects.create(**defaults)
+
+    def test_serializer_matches_to_dict_schema_and_values(self):
+        item = self._create_item()
+        serialized = GraveyardItemSerializer(item).data
+        expected = item.to_dict()
+        self.assertEqual(set(serialized.keys()), set(expected.keys()))
+
+        self.api_client.force_authenticate(user=self.user)
+        response = self.api_client.get(reverse('graveyard_api:item-detail', args=[item.pk]))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(set(payload.keys()), set(expected.keys()))
+        for key in ('created_at', 'updated_at'):
+            self.assertEqual(datetime.fromisoformat(payload[key]), datetime.fromisoformat(expected[key]))
+        for key in set(expected.keys()) - {'created_at', 'updated_at'}:
+            self.assertEqual(payload[key], expected[key])
+
+    def test_guest_rejected_with_403(self):
+        item = self._create_item()
+        detail_url = reverse('graveyard_api:item-detail', args=[item.pk])
+
+        self.assertEqual(self.api_client.get(self.list_url).status_code, 403)
+        self.assertEqual(self.api_client.post(self.list_url, {}, format='json').status_code, 403)
+        self.assertEqual(self.api_client.get(detail_url).status_code, 403)
+        self.assertEqual(self.api_client.patch(detail_url, {}, format='json').status_code, 403)
+        self.assertEqual(self.api_client.delete(detail_url).status_code, 403)
+
+    def test_list_returns_only_own_items_and_supports_filters(self):
+        self._create_item(
+            user=self.user, name='Susu UHT', category=Category.DAIRY,
+            reason=DisposalReason.EXPIRED, disposed_at=self.today,
+        )
+        self._create_item(
+            user=self.user, name='Bayam Segar', category=Category.VEG,
+            reason=DisposalReason.FORGOTTEN, notes='Mengendap di laci',
+            disposed_at=self.today - timedelta(days=5),
+        )
+        self._create_item(
+            user=self.other_user, name='Daging Tetangga', category=Category.MEAT,
+            disposed_at=self.today,
+        )
+
+        self.api_client.force_authenticate(user=self.user)
+
+        resp_all = self.api_client.get(self.list_url)
+        self.assertEqual(resp_all.status_code, 200)
+        data_all = resp_all.json()
+        self.assertIsInstance(data_all, list)
+        self.assertEqual([row['name'] for row in data_all], ['Susu UHT', 'Bayam Segar'])
+
+        resp_cat = self.api_client.get(self.list_url, {'category': Category.VEG})
+        self.assertEqual([row['name'] for row in resp_cat.json()], ['Bayam Segar'])
+
+        resp_reason = self.api_client.get(self.list_url, {'reason': DisposalReason.EXPIRED})
+        self.assertEqual([row['name'] for row in resp_reason.json()], ['Susu UHT'])
+
+        resp_q = self.api_client.get(self.list_url, {'q': 'laci'})
+        self.assertEqual([row['name'] for row in resp_q.json()], ['Bayam Segar'])
+
+        resp_dates = self.api_client.get(self.list_url, {
+            'date_from': str(self.today - timedelta(days=2)),
+            'date_to': str(self.today),
+        })
+        self.assertEqual([row['name'] for row in resp_dates.json()], ['Susu UHT'])
+
+        # Rentang tanggal terbalik tetap ditukar otomatis seperti pada view HTML
+        resp_swapped = self.api_client.get(self.list_url, {
+            'date_from': str(self.today),
+            'date_to': str(self.today - timedelta(days=2)),
+        })
+        self.assertEqual([row['name'] for row in resp_swapped.json()], ['Susu UHT'])
+
+    def test_detail_isolates_other_user_items(self):
+        own_item = self._create_item(user=self.user, name='Milik Sendiri')
+        other_item = self._create_item(user=self.other_user, name='Milik Tetangga')
+
+        self.api_client.force_authenticate(user=self.user)
+        resp_own = self.api_client.get(reverse('graveyard_api:item-detail', args=[own_item.pk]))
+        self.assertEqual(resp_own.status_code, 200)
+        self.assertEqual(resp_own.json()['name'], 'Milik Sendiri')
+
+        resp_other = self.api_client.get(reverse('graveyard_api:item-detail', args=[other_item.pk]))
+        self.assertEqual(resp_other.status_code, 404)
+
+    def test_create_update_delete_and_csrf_enforcement(self):
+        csrf_client = APIClient(enforce_csrf_checks=True)
+        login_resp = csrf_client.post(
+            reverse('auth_api:login'),
+            {'username': 'adam_api', 'password': self.password},
+            format='json',
+        )
+        self.assertEqual(login_resp.status_code, 200)
+        csrf_token = login_resp.json()['csrf_token']
+
+        # Tanpa CSRF token ditolak 403
+        no_csrf = csrf_client.post(self.list_url, {'name': 'Tempe'}, format='json')
+        self.assertEqual(no_csrf.status_code, 403)
+
+        # POST valid dengan CSRF berhasil (201)
+        payload = {
+            'name': 'Roti Gandum',
+            'category': Category.GRAIN,
+            'reason': DisposalReason.MOLD,
+            'notes': 'Berjamur di rak',
+            'quantity': 1,
+            'unit': Unit.PACK,
+            'weight_g': '400.00',
+            'estimated_loss': '22000.00',
+            'disposed_at': str(self.today),
+        }
+        created_resp = csrf_client.post(
+            self.list_url, payload, format='json', HTTP_X_CSRFTOKEN=csrf_token,
+        )
+        self.assertEqual(created_resp.status_code, 201)
+        created_data = created_resp.json()
+        self.assertEqual(created_data['name'], 'Roti Gandum')
+        self.assertEqual(created_data['category_label'], 'Biji-bijian & Makanan Kering')
+        self.assertEqual(created_data['estimated_carbon_kg'], 1.0)
+        item_pk = created_data['id']
+        self.assertTrue(GraveyardItem.objects.filter(pk=item_pk, user=self.user).exists())
+
+        # Validasi error 400 (nama kosong & tanggal di masa depan)
+        invalid_resp = csrf_client.post(
+            self.list_url,
+            {'name': '', 'disposed_at': str(self.today + timedelta(days=1))},
+            format='json',
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+        self.assertEqual(invalid_resp.status_code, 400)
+        self.assertIn('name', invalid_resp.json())
+        self.assertIn('disposed_at', invalid_resp.json())
+
+        # PATCH & PUT milik sendiri
+        detail_url = reverse('graveyard_api:item-detail', args=[item_pk])
+        patch_resp = csrf_client.patch(
+            detail_url,
+            {'notes': 'Sudah dikonfirmasi berjamur', 'estimated_loss': '25000.00'},
+            format='json',
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+        self.assertEqual(patch_resp.status_code, 200)
+        self.assertEqual(patch_resp.json()['notes'], 'Sudah dikonfirmasi berjamur')
+        self.assertEqual(patch_resp.json()['estimated_loss'], 25000.0)
+
+        put_resp = csrf_client.put(
+            detail_url,
+            {**payload, 'name': 'Roti Tawar Gandum', 'estimated_loss': '26000.00'},
+            format='json',
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+        self.assertEqual(put_resp.status_code, 200)
+        self.assertEqual(put_resp.json()['name'], 'Roti Tawar Gandum')
+
+        # PATCH/PUT/DELETE milik pengguna lain mengembalikan 404
+        other_item = self._create_item(user=self.other_user, name='Keju Tetangga')
+        other_url = reverse('graveyard_api:item-detail', args=[other_item.pk])
+        self.assertEqual(
+            csrf_client.patch(other_url, {'name': 'Diubah'}, format='json', HTTP_X_CSRFTOKEN=csrf_token).status_code,
+            404,
+        )
+        self.assertEqual(
+            csrf_client.delete(other_url, HTTP_X_CSRFTOKEN=csrf_token).status_code,
+            404,
+        )
+        self.assertTrue(GraveyardItem.objects.filter(pk=other_item.pk).exists())
+
+        # DELETE milik sendiri mengembalikan 204 dan terhapus dari database
+        del_resp = csrf_client.delete(detail_url, HTTP_X_CSRFTOKEN=csrf_token)
+        self.assertEqual(del_resp.status_code, 204)
+        self.assertFalse(GraveyardItem.objects.filter(pk=item_pk).exists())
