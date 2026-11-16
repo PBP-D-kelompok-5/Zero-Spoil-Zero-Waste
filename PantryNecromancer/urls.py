@@ -25,4 +25,14 @@ urlpatterns = [
     path('death-clock/', include('death_clock.urls')),
     path('graveyard/', include('graveyard.urls')),
     path('recipes/', include('recipe_alchemist.urls')),
+
+    # Web service DRF untuk aplikasi Flutter. Endpoint /json/ lama tetap dipakai situs web.
+    path('api/auth/', include('main.api_urls')),
+    path('api/death-clock/', include('death_clock.api_urls')),
+    path('api/recipes/', include('recipe_alchemist.api_urls')),
+    path('api/dead-drop/', include('dead_drop.api_urls')),
+    path('api/graveyard/', include('graveyard.api_urls')),
+    path('api/grimoire/', include('preservation_grimoire.api_urls')),
+    # Login/logout untuk Browsable API DRF (cek endpoint lewat browser), seperti Tutorial 07
+    path('api-auth/', include('rest_framework.urls')),
 ]

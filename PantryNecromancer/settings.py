@@ -39,13 +39,24 @@ PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = not PRODUCTION
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "michael-evan51-pantry-necromancer.pws.cs.ui.ac.id"]
+PWS_HOST = "michael-evan51-pantry-necromancer.pws.cs.ui.ac.id"
 
-CSRF_TRUSTED_ORIGINS = ["https://michael-evan51-pantry-necromancer.pws.cs.ui.ac.id"]
+# 10.0.2.2 = alamat localhost komputer jika dibuka dari emulator Android (tes Flutter lokal)
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "10.0.2.2", PWS_HOST]
+
+# Flutter web (`flutter run -d chrome --web-port 5000`) berjalan di origin ini.
+# Port dikunci ke 5000 supaya CORS dan CSRF cukup mempercayai satu origin, bukan semua port.
+FLUTTER_WEB_ORIGINS = ["http://localhost:5000", "http://127.0.0.1:5000"]
+
+CSRF_TRUSTED_ORIGINS = [f"https://{PWS_HOST}", *FLUTTER_WEB_ORIGINS]
 
 if PRODUCTION:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    # Flutter web (localhost) -> PWS adalah request lintas situs; browser hanya mengirim
+    # cookie session/CSRF jika SameSite=None (wajib Secure). APK Android tidak terpengaruh.
+    SESSION_COOKIE_SAMESITE = "None"
+    CSRF_COOKIE_SAMESITE = "None"
 
 # Application definition
 
@@ -62,10 +73,13 @@ INSTALLED_APPS = [
     'recipe_alchemist',
     'dead_drop',
     'main',
+    'rest_framework',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # harus sebelum WhiteNoise & CommonMiddleware
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -169,6 +183,27 @@ WHITENOISE_USE_FINDERS = True
 
 # Halaman yang memakai @login_required diarahkan ke sini
 LOGIN_URL = 'main:login'
+
+
+# ---------- Web service untuk aplikasi Flutter (Django REST Framework) ----------
+# Pola mengikuti Tutorial 07: login berbasis session, request yang mengubah data wajib
+# membawa token CSRF. Default di bawah berlaku untuk semua API view yang tidak menulis
+# @authentication_classes / @permission_classes sendiri. IsAuthenticated sengaja jadi
+# default (gagal tertutup): endpoint yang boleh dibaca tamu harus membukanya secara eksplisit.
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
+# CORS hanya diperlukan Flutter web (Chrome); APK tidak memakai CORS.
+# Dibatasi ke /api/ dan ke origin Flutter web lokal, dengan cookie (credentials).
+CORS_URLS_REGEX = r'^/api/.*$'
+CORS_ALLOWED_ORIGINS = FLUTTER_WEB_ORIGINS
+CORS_ALLOW_CREDENTIALS = True
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
