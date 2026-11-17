@@ -26,6 +26,9 @@ Kerjakan hanya di file modulmu sendiri supaya tidak konflik:
    Login dulu lewat `/login/` atau `/api-auth/login/`. Tambahkan `?format=json` untuk melihat JSON mentah.
 5. Tulis tes di `tests.py` modulmu, lalu commit dari akun GitHub sendiri.
 
+Contoh yang sudah jadi ada di modul Death Clock: `death_clock/serializers.py`, `death_clock/api_views.py`,
+`death_clock/api_urls.py`, dan tesnya di `death_clock/tests/test_api.py`.
+
 | Modul | Prefiks | Endpoint Checkpoint 1 | Akses baca |
 |---|---|---|---|
 | Death Clock (Evan) | `/api/death-clock/` | `items/`, `items/<id>/` | login, data sendiri |
