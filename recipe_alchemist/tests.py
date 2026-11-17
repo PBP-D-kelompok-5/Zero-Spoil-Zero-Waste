@@ -15,6 +15,8 @@ from recipe_alchemist.forms import RecipeForm, SaveApiRecipeForm, SearchForm
 from recipe_alchemist.models import Recipe
 from recipe_alchemist.services import SpoonacularError, find_by_ingredients, to_english
 
+from rest_framework.test import APITestCase
+
 User = get_user_model()
 AJAX = {'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest'}
 
@@ -670,3 +672,156 @@ class RecipeJsonTests(ViewTestCase):
         data = self.client.get(reverse('recipe_alchemist:recipe_json', args=[public.pk])).json()
         self.assertEqual(data['title'], 'Bob publik')
         self.assertNotIn('notes', data)
+
+
+class RecipeAPITests(APITestCase):
+    list_url = '/api/recipes/'
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user('alice', password='pw12345!')
+        cls.other = User.objects.create_user('bob', password='pw12345!')
+
+    def make(self, user=None, **kwargs):
+        defaults = {'title': 'Nasi Goreng', 'ingredients': '2 butir telur\nnasi'}
+        defaults.update(kwargs)
+        return Recipe.objects.create(user=user or self.user, **defaults)
+
+    def detail(self, recipe):
+        return f'/api/recipes/{recipe.pk}/'
+
+    def test_guest_can_list_community_recipes_only(self):
+        public = self.make(self.other, title='Public', is_public=True)
+        self.make(self.other, title='Private')
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([r['id'] for r in response.json()], [public.pk])
+
+    def test_default_scope_is_community(self):
+        self.make(self.user, title='Mine private')
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(self.list_url).json(), [])
+
+    def test_guest_cannot_list_mine(self):
+        response = self.client.get(self.list_url, {'scope': 'mine'})
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('detail', response.json())
+
+    def test_mine_returns_only_own_recipes(self):
+        mine = self.make(self.user, title='Mine')
+        self.make(self.other, title='Theirs', is_public=True)
+        self.client.force_login(self.user)
+        response = self.client.get(self.list_url, {'scope': 'mine'})
+        self.assertEqual([r['id'] for r in response.json()], [mine.pk])
+
+    def test_invalid_scope_returns_400(self):
+        response = self.client.get(self.list_url, {'scope': 'everything'})
+        self.assertEqual(response.status_code, 400)
+
+    def test_search_query_filters_title_and_ingredients(self):
+        match = self.make(self.other, title='Sup Ayam', is_public=True)
+        self.make(self.other, title='Tempe', ingredients='tempe', is_public=True)
+        response = self.client.get(self.list_url, {'q': 'ayam'})
+        self.assertEqual([r['id'] for r in response.json()], [match.pk])
+
+    def test_response_shape(self):
+        self.make(self.user, is_public=True, cook_time_minutes=15, diet='vegan')
+        self.client.force_login(self.user)
+        item = self.client.get(self.list_url, {'scope': 'mine'}).json()[0]
+        self.assertEqual(item['username'], 'alice')
+        self.assertEqual(item['ingredient_list'], ['2 butir telur', 'nasi'])
+        self.assertEqual(item['cook_time_minutes'], 15)
+        self.assertTrue(item['is_owner'])
+
+    def test_notes_hidden_from_non_owners_but_visible_to_owner(self):
+        recipe = self.make(self.user, is_public=True, notes='rahasia dapur')
+        self.client.force_login(self.other)
+        self.assertNotIn('notes', self.client.get(self.detail(recipe)).json())
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(self.detail(recipe)).json()['notes'], 'rahasia dapur')
+
+    def test_private_recipe_is_404_for_others_and_guests(self):
+        recipe = self.make(self.user)
+        self.assertEqual(self.client.get(self.detail(recipe)).status_code, 404)
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(self.detail(recipe)).status_code, 404)
+
+    def test_owner_and_guest_can_read_allowed_recipes(self):
+        private = self.make(self.user)
+        public = self.make(self.user, is_public=True)
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(self.detail(private)).status_code, 200)
+        self.client.logout()
+        self.assertEqual(self.client.get(self.detail(public)).status_code, 200)
+
+    def test_guest_cannot_create(self):
+        response = self.client.post(self.list_url, {'title': 'A', 'ingredients': 'x'}, format='json')
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(Recipe.objects.count(), 0)
+
+    def test_create_assigns_owner_and_ignores_read_only_fields(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.list_url, {
+            'title': 'Telur Dadar', 'ingredients': '2 butir telur', 'is_public': True,
+            'source': 'SPOONACULAR', 'spoonacular_id': 5, 'user': self.other.pk,
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        recipe = Recipe.objects.get()
+        self.assertEqual(recipe.user, self.user)
+        self.assertEqual(recipe.source, Recipe.Source.CUSTOM)
+        self.assertIsNone(recipe.spoonacular_id)
+        self.assertTrue(response.json()['is_owner'])
+
+    def test_create_invalid_returns_field_errors(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.list_url, {'title': '', 'ingredients': ''}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('title', response.json())
+        self.assertIn('ingredients', response.json())
+
+    def test_create_rejects_unknown_diet_and_bad_cook_time(self):
+        self.client.force_login(self.user)
+        response = self.client.post(self.list_url, {
+            'title': 'A', 'ingredients': 'x', 'diet': 'carnivore', 'cook_time_minutes': 0,
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('diet', response.json())
+        self.assertIn('cook_time_minutes', response.json())
+
+    def test_owner_can_put_and_patch(self):
+        recipe = self.make(self.user)
+        self.client.force_login(self.user)
+        url = self.detail(recipe)
+        response = self.client.put(url, {'title': 'Baru', 'ingredients': 'x'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        response = self.client.patch(url, {'is_public': True}, format='json')
+        self.assertEqual(response.status_code, 200)
+        recipe.refresh_from_db()
+        self.assertEqual(recipe.title, 'Baru')
+        self.assertTrue(recipe.is_public)
+
+    def test_others_cannot_update_even_public_recipes(self):
+        recipe = self.make(self.user, is_public=True)
+        self.client.force_login(self.other)
+        response = self.client.patch(self.detail(recipe), {'title': 'Hacked'}, format='json')
+        self.assertEqual(response.status_code, 404)
+        recipe.refresh_from_db()
+        self.assertNotEqual(recipe.title, 'Hacked')
+
+    def test_guest_cannot_update_or_delete(self):
+        recipe = self.make(self.user, is_public=True)
+        self.assertEqual(self.client.patch(self.detail(recipe), {'title': 'X'}, format='json').status_code, 403)
+        self.assertEqual(self.client.delete(self.detail(recipe)).status_code, 403)
+        self.assertTrue(Recipe.objects.filter(pk=recipe.pk).exists())
+
+    def test_owner_can_delete(self):
+        recipe = self.make(self.user)
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.delete(self.detail(recipe)).status_code, 204)
+        self.assertFalse(Recipe.objects.filter(pk=recipe.pk).exists())
+
+    def test_others_cannot_delete(self):
+        recipe = self.make(self.user, is_public=True)
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.delete(self.detail(recipe)).status_code, 404)
+        self.assertTrue(Recipe.objects.filter(pk=recipe.pk).exists())
