@@ -9,6 +9,7 @@ from django.test import TestCase
 from django.utils import timezone
 from django.urls import reverse
 from urllib.parse import parse_qs, urlsplit
+from rest_framework.test import APITestCase
 
 from .models import FoodListing, ListingStatus
 from .forms import FoodListingForm
@@ -1474,3 +1475,93 @@ class DeadDropGuestHtmxTests(FoodListingBoardTests):
         response = self.client.get(reverse("dead_drop:create_listing"))
         self.assertRedirects(response, f"{reverse('main:login')}?next={reverse('dead_drop:create_listing')}",
                              fetch_redirect_response=False)
+
+
+class FoodListingAPITests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.owner = user_model.objects.create_user(username="api_owner", password="test_password")
+        cls.reserver = user_model.objects.create_user(username="api_reserver", password="test_password")
+        cls.other_user = user_model.objects.create_user(username="api_other", password="test_password")
+
+    def create_listing(self, **overrides):
+        data = {
+            "owner": self.owner,
+            "food_name": "Kangkung",
+            "description": "Masih segar",
+            "pickup_location": "Depok",
+            "pickup_time": timezone.now() + timedelta(days=1),
+            "pickup_notes": "Temui saya di gerbang",
+            "latitude": Decimal("-6.200000"),
+            "longitude": Decimal("106.816666"),
+        }
+        data.update(overrides)
+        return FoodListing.objects.create(**data)
+
+    def setUp(self):
+        self.list_url = reverse("dead_drop_api:listing-list")
+        self.available = self.create_listing()
+        self.reserved = self.create_listing(
+            status=ListingStatus.RESERVED,
+            reserved_by=self.reserver,
+        )
+        self.claimed = self.create_listing(
+            status=ListingStatus.CLAIMED,
+            reserved_by=self.reserver,
+            claimed_at=timezone.now(),
+        )
+
+    def test_guest_list_contains_available_only(self):
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["id"] for item in response.json()], [self.available.pk])
+
+    def test_owner_and_reserver_can_see_their_reserved_and_claimed_listings(self):
+        for user in (self.owner, self.reserver):
+            self.client.force_authenticate(user=user)
+            response = self.client.get(self.list_url)
+            self.assertEqual(response.status_code, 200)
+            self.assertCountEqual(
+                [item["id"] for item in response.json()],
+                [self.available.pk, self.reserved.pk, self.claimed.pk],
+            )
+
+    def test_other_user_only_sees_available_and_private_detail_is_404(self):
+        self.client.force_authenticate(user=self.other_user)
+        response = self.client.get(self.list_url)
+
+        self.assertEqual([item["id"] for item in response.json()], [self.available.pk])
+        detail = self.client.get(
+            reverse("dead_drop_api:listing-detail", args=[self.reserved.pk])
+        )
+        self.assertEqual(detail.status_code, 404)
+
+    def test_status_filter_and_response_shape(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.get(self.list_url, {"status": ListingStatus.RESERVED})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["id"] for item in response.json()], [self.reserved.pk])
+        item = response.json()[0]
+        self.assertEqual(item["owner"], "api_owner")
+        self.assertEqual(item["reserved_by"], "api_reserver")
+        self.assertEqual(item["status_label"], "Reserved")
+        self.assertIsInstance(item["latitude"], float)
+        self.assertIn("claimed_at", item)
+
+    def test_unknown_status_returns_400(self):
+        response = self.client.get(self.list_url, {"status": "missing"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("detail", response.json())
+
+    def test_detail_returns_public_listing_shape(self):
+        response = self.client.get(
+            reverse("dead_drop_api:listing-detail", args=[self.available.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["food_name"], "Kangkung")
+        self.assertEqual(response.json()["owner"], "api_owner")
